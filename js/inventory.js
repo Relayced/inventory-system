@@ -55,22 +55,78 @@ async function loadInventory() {
     .order("updated_at", { ascending: false });
 
   if (error) {
-    el("tableNote").innerHTML = `<span class="danger">Cannot load inventory: ${escapeHtml(error.message)}</span>`;
+    el("tableNote").innerHTML = `<span class="danger">Cannot load inventory: ${escapeHtml(
+      error.message
+    )}</span>`;
     el("invBody").innerHTML = "";
     return;
   }
 
   allRows = (data || []).map((r) => ({
-    id: r.products?.id || r.product_id,                // IMPORTANT: use products.id for editing
-    invProductId: r.product_id,                        // inventory uses product_id
+    id: r.products?.id || r.product_id, // products.id (for edit/delete products)
+    invProductId: r.product_id, // inventory.product_id (for stock/delete inventory)
     name: r.products?.name ?? "Unknown",
     price: Number(r.products?.price ?? 0),
-    min: Number(r.products?.min_stock ?? 5),          // default 5 so status won’t break
+    min: Number(r.products?.min_stock ?? 5),
     stock: Number(r.stock ?? 0),
   }));
 
-  el("tableNote").textContent = allRows.length ? "" : "No products yet. (Admin can add.)";
+  el("tableNote").textContent = allRows.length
+    ? ""
+    : "No products yet. (Admin can add.)";
+
   renderTable(allRows);
+}
+
+/* =========================
+   DELETE PRODUCT + STOCK
+   (Admin only)
+========================= */
+async function deleteProduct(row) {
+  if (!row?.invProductId || !row?.id) return;
+
+  const ok = confirm(
+    `Delete this product?\n\n${row.name}\n\nThis will REMOVE it from inventory and products.`
+  );
+  if (!ok) return;
+
+  // extra safety: require typing DELETE
+  const verify = prompt(`Type DELETE to confirm deleting:\n\n${row.name}`, "");
+  if (verify !== "DELETE") {
+    alert("Cancelled. (You must type DELETE exactly.)");
+    return;
+  }
+
+  showMsg("Deleting product…", false);
+
+  // 1) delete inventory row first (avoid foreign key problems)
+  const { error: invErr } = await supabase
+    .from("inventory")
+    .delete()
+    .eq("product_id", row.invProductId);
+
+  if (invErr) {
+    showMsg("Delete failed (inventory): " + invErr.message, true);
+    return;
+  }
+
+  // 2) then delete product row
+  const { error: prodErr } = await supabase
+    .from("products")
+    .delete()
+    .eq("id", row.id);
+
+  if (prodErr) {
+    // inventory already deleted, so explain clearly
+    showMsg(
+      "Inventory deleted but product delete failed: " + prodErr.message,
+      true
+    );
+    return;
+  }
+
+  showMsg("✅ Deleted!", false);
+  await loadInventory();
 }
 
 /* =========================
@@ -89,9 +145,15 @@ function renderTable(rows) {
               data-upstock="${r.invProductId}" data-stock="${r.stock}">
               Stock
             </button>
+
             <button class="btn" style="padding:8px 10px;border-radius:10px;background:#0ea5e9"
               data-edit="${r.id}">
               Edit
+            </button>
+
+            <button class="btn" style="padding:8px 10px;border-radius:10px;background:#dc2626"
+              data-del-inv="${r.invProductId}" data-del-prod="${r.id}">
+              Delete
             </button>
           </td>
         `
@@ -144,7 +206,7 @@ function renderTable(rows) {
     document.querySelectorAll("button[data-edit]").forEach((btn) => {
       btn.addEventListener("click", async () => {
         const productId = btn.getAttribute("data-edit");
-        const row = allRows.find((x) => x.id === productId);
+        const row = allRows.find((x) => String(x.id) === String(productId));
         if (!row) return;
 
         const newPriceStr = prompt("New price (₱):", String(row.price));
@@ -176,6 +238,21 @@ function renderTable(rows) {
         }
 
         await loadInventory();
+      });
+    });
+
+    // ✅ Delete button
+    document.querySelectorAll("button[data-del-inv]").forEach((btn) => {
+      btn.addEventListener("click", async () => {
+        const invId = btn.getAttribute("data-del-inv");
+        const prodId = btn.getAttribute("data-del-prod");
+
+        const row = allRows.find(
+          (x) => String(x.invProductId) === String(invId) && String(x.id) === String(prodId)
+        );
+        if (!row) return;
+
+        await deleteProduct(row);
       });
     });
   }
