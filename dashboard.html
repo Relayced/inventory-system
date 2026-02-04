@@ -1,58 +1,313 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Dashboard</title>
+
+  <!-- =====================
+        INLINE CSS
+  ====================== -->
   <style>
-    body { font-family: Arial, sans-serif; margin: 0; min-height: 100vh; background: #f6f7fb; }
-    header { background: #fff; padding: 14px 18px; display: flex; align-items: center; justify-content: space-between; box-shadow: 0 4px 20px rgba(0,0,0,.06); }
-    .wrap { max-width: 980px; margin: 20px auto; padding: 0 16px; }
-    .card { background: #fff; padding: 18px; border-radius: 14px; box-shadow: 0 10px 30px rgba(0,0,0,.08); }
-    .muted { color: #666; }
-    button { padding: 10px 12px; border: 0; border-radius: 10px; background: #111; color: #fff; cursor: pointer; }
-    button:hover { opacity: .92; }
-    #error { margin-top: 10px; color: #c00; font-size: 14px; min-height: 18px; }
-  </style>
-</head>
-<body>
-
-  <header>
-    <div><strong>Dashboard</strong></div>
-    <button id="logoutBtn" type="button">Logout</button>
-  </header>
-
-  <div class="wrap">
-    <div class="card">
-      <h2 style="margin-top:0;">Welcome!</h2>
-      <p class="muted">Signed in as:</p>
-      <p><strong id="userEmail">Loading...</strong></p>
-      <div id="error"></div>
-    </div>
-  </div>
-
-  <!-- IMPORTANT: must be module -->
-  <script type="module">
-    import { supabase } from "./js/supabase.js";
-
-    // Protect page + show user email
-    const { data, error } = await supabase.auth.getUser();
-
-    if (error || !data?.user) {
-      window.location.href = "index.html";
-    } else {
-      document.getElementById("userEmail").textContent = data.user.email ?? "(no email)";
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: "Segoe UI", Arial, sans-serif;
     }
 
-    // Logout
-    document.getElementById("logoutBtn").addEventListener("click", async () => {
-      const { error: signOutError } = await supabase.auth.signOut();
-      if (signOutError) {
-        document.getElementById("error").textContent = signOutError.message;
-        return;
+    body {
+      background: #f4f6f8;
+      color: #333;
+    }
+
+    .app {
+      display: flex;
+      min-height: 100vh;
+    }
+
+    /* SIDEBAR */
+    .sidebar {
+      width: 250px;
+      background: #111827;
+      color: #fff;
+      display: flex;
+      flex-direction: column;
+      padding: 20px;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 30px;
+    }
+
+    .logo {
+      background: #2563eb;
+      width: 42px;
+      height: 42px;
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: bold;
+    }
+
+    .brand-title {
+      font-size: 18px;
+      font-weight: bold;
+    }
+
+    .brand-sub {
+      font-size: 12px;
+      opacity: 0.7;
+    }
+
+    .nav {
+      flex: 1;
+    }
+
+    .nav-item {
+      display: block;
+      padding: 12px 14px;
+      margin-bottom: 6px;
+      border-radius: 8px;
+      text-decoration: none;
+      color: #cbd5e1;
+    }
+
+    .nav-item:hover,
+    .nav-item.active {
+      background: #1f2933;
+      color: #fff;
+    }
+
+    .btn {
+      padding: 10px 14px;
+      border-radius: 8px;
+      border: none;
+      cursor: pointer;
+      background: #2563eb;
+      color: #fff;
+    }
+
+    .btn-ghost {
+      background: transparent;
+      border: 1px solid #374151;
+      color: #cbd5e1;
+      margin-top: 10px;
+    }
+
+    .sidebar-footer {
+      margin-top: 20px;
+      font-size: 12px;
+      opacity: 0.8;
+    }
+
+    /* MAIN */
+    .main {
+      flex: 1;
+      padding: 24px;
+    }
+
+    .topbar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 20px;
+    }
+
+    .page-title {
+      font-size: 24px;
+      font-weight: bold;
+    }
+
+    .page-sub {
+      font-size: 13px;
+      color: #6b7280;
+    }
+
+    /* GRID */
+    .grid {
+      display: grid;
+      gap: 16px;
+    }
+
+    .stats {
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      margin-bottom: 24px;
+    }
+
+    .content {
+      grid-template-columns: repeat(12, 1fr);
+    }
+
+    .span-7 {
+      grid-column: span 7;
+    }
+
+    .span-5 {
+      grid-column: span 5;
+    }
+
+    /* CARDS */
+    .card {
+      background: #fff;
+      border-radius: 14px;
+      padding: 18px;
+      box-shadow: 0 10px 20px rgba(0,0,0,0.05);
+    }
+
+    .card-label {
+      font-size: 13px;
+      color: #6b7280;
+      margin-bottom: 6px;
+    }
+
+    .card-value {
+      font-size: 26px;
+      font-weight: bold;
+    }
+
+    .card-sub {
+      font-size: 12px;
+      color: #9ca3af;
+      margin-top: 4px;
+    }
+
+    .danger {
+      color: #dc2626;
+    }
+
+    .card-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 12px;
+    }
+
+    .pill {
+      background: #e0f2fe;
+      color: #0369a1;
+      padding: 4px 10px;
+      font-size: 11px;
+      border-radius: 999px;
+    }
+
+    .empty {
+      text-align: center;
+      color: #9ca3af;
+      padding: 20px;
+      font-size: 14px;
+    }
+
+    /* RESPONSIVE */
+    @media (max-width: 900px) {
+      .sidebar {
+        display: none;
       }
-      window.location.href = "index.html";
-    });
-  </script>
+
+      .content {
+        grid-template-columns: 1fr;
+      }
+
+      .span-7,
+      .span-5 {
+        grid-column: span 1;
+      }
+    }
+  </style>
+
+  <!-- JS -->
+  <script type="module" src="./js/dashboard.js"></script>
+</head>
+
+<body>
+  <div class="app">
+    <!-- SIDEBAR -->
+    <aside class="sidebar">
+      <div class="brand">
+        <div class="logo">KS</div>
+        <div>
+          <div class="brand-title">Kairo System</div>
+          <div class="brand-sub">Inventory & Sales</div>
+        </div>
+      </div>
+
+      <nav class="nav">
+        <a class="nav-item active" href="#">Dashboard</a>
+        <a class="nav-item" href="#">Inventory</a>
+        <a class="nav-item" href="#">Sales</a>
+        <a class="nav-item" href="#">Reports</a>
+        <a class="nav-item" href="#">Admin</a>
+      </nav>
+
+      <button class="btn btn-ghost" id="logoutBtn">Logout</button>
+
+      <div class="sidebar-footer">
+        <span id="userEmail">Loading user…</span>
+      </div>
+    </aside>
+
+    <!-- MAIN -->
+    <main class="main">
+      <header class="topbar">
+        <div>
+          <h1 class="page-title">Dashboard</h1>
+          <p class="page-sub">Sales & inventory overview</p>
+        </div>
+        <button class="btn" id="refreshBtn">Refresh</button>
+      </header>
+
+      <!-- STATS -->
+      <section class="grid stats">
+        <div class="card">
+          <div class="card-label">Today Sales</div>
+          <div class="card-value">₱0.00</div>
+          <div class="card-sub">0 orders</div>
+        </div>
+
+        <div class="card">
+          <div class="card-label">Monthly Sales</div>
+          <div class="card-value">₱0.00</div>
+          <div class="card-sub">0 orders</div>
+        </div>
+
+        <div class="card">
+          <div class="card-label">Products</div>
+          <div class="card-value">0</div>
+          <div class="card-sub">Active items</div>
+        </div>
+
+        <div class="card">
+          <div class="card-label">Low Stock</div>
+          <div class="card-value danger">0</div>
+          <div class="card-sub">Needs restock</div>
+        </div>
+      </section>
+
+      <!-- CONTENT -->
+      <section class="grid content">
+        <div class="card span-7">
+          <div class="card-head">
+            <h3>Low Stock Alerts</h3>
+            <span class="pill">Live</span>
+          </div>
+          <div class="empty">No low stock items 🎉</div>
+        </div>
+
+        <div class="card span-5">
+          <div class="card-head">
+            <h3>Quick Info</h3>
+          </div>
+          <p style="font-size:14px; color:#6b7280;">
+            Select a section from the menu to manage inventory,
+            record sales, and view reports.
+          </p>
+        </div>
+      </section>
+    </main>
+  </div>
 </body>
 </html>
