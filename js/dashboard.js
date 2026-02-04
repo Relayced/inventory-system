@@ -18,11 +18,17 @@ async function getMyRole(userId) {
     .from("profiles")
     .select("role, full_name")
     .eq("id", userId)
-    .maybeSingle();
+    .single();
 
-  // If profile select is blocked by policy, this might error.
-  if (error) return { role: "staff", full_name: null };
-  return data || { role: "staff", full_name: null };
+  if (error) {
+    // show the error on the page so you know what's wrong
+    const roleEl = document.getElementById("userRole");
+    if (roleEl) roleEl.textContent = "ERROR (check console)";
+    console.error("Role read failed:", error);
+    return { role: "staff", full_name: null };
+  }
+
+  return data;
 }
 
 async function loadCounts(userId) {
