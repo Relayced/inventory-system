@@ -178,4 +178,17 @@
     </main>
   </div>
 </body>
+
+  <script type="module">
+  import { supabase } from "./js/supabase.js";
+
+  // Temporary debug: prints the logged in user in console
+  window.debugAuth = async () => {
+    const res = await supabase.auth.getUser();
+    console.log("AUTH CHECK:", res);
+    alert(res?.data?.user ? "Logged in ✅" : "Not logged in ❌");
+  };
+</script>
+
+  
 </html>
