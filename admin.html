@@ -58,7 +58,7 @@
   </style>
 
   <!-- IMPORTANT: bump version so GitHub Pages loads newest JS -->
-  <script type="module" src="./js/admin.js?v=2"></script>
+  <script type="module" src="./js/admin.js?v=3"></script>
 </head>
 
 <body>
@@ -110,13 +110,19 @@
 
         <div style="height:18px;"></div>
 
-        <!-- Invite section -->
-        <h3 style="margin-bottom:8px;">Invite / Create Account</h3>
+        <!-- Create section -->
+        <h3 style="margin-bottom:8px;">Create Account</h3>
 
         <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:end;">
           <div style="display:flex;flex-direction:column;gap:6px;min-width:240px;flex:1;">
             <label style="font-size:12px;color:#6b7280;">New user email</label>
             <input id="newEmail" placeholder="name@gmail.com" />
+          </div>
+
+          <!-- ✅ ADDED PASSWORD FIELD -->
+          <div style="display:flex;flex-direction:column;gap:6px;min-width:240px;flex:1;">
+            <label style="font-size:12px;color:#6b7280;">Password</label>
+            <input id="newPassword" type="password" placeholder="Create a password" />
           </div>
 
           <div style="display:flex;flex-direction:column;gap:6px;min-width:160px;">
@@ -127,11 +133,11 @@
             </select>
           </div>
 
-          <button class="btn" id="createUserBtn">Invite User</button>
+          <button class="btn" id="createUserBtn">Create User</button>
         </div>
 
         <div class="muted" style="margin-top:8px;">
-          This sends an invite email. The user will set their password from the email.
+          This creates an account directly (no invite email).
         </div>
 
         <div style="height:18px;"></div>
