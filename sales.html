@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Sales</title>
+
+  <style>
+    *{box-sizing:border-box;margin:0;padding:0;font-family:Segoe UI,Arial,sans-serif}
+    body{background:#f4f6f8;color:#111}
+    .app{display:flex;min-height:100vh}
+
+    .sidebar{width:250px;background:#111827;color:#fff;display:flex;flex-direction:column;padding:20px}
+    .brand{display:flex;gap:12px;align-items:center;margin-bottom:22px}
+    .logo{width:42px;height:42px;border-radius:10px;background:#2563eb;display:flex;align-items:center;justify-content:center;font-weight:900}
+    .brand-title{font-size:18px;font-weight:900}
+    .brand-sub{font-size:12px;opacity:.7}
+
+    .nav{flex:1;margin-top:6px}
+    .nav a{display:block;text-decoration:none;color:#cbd5e1;padding:12px 14px;border-radius:10px;margin-bottom:6px}
+    .nav a:hover,.nav a.active{background:#1f2937;color:#fff}
+
+    .btn{border:0;border-radius:10px;padding:10px 14px;cursor:pointer;background:#2563eb;color:#fff;font-weight:600}
+    .btn-ghost{background:transparent;border:1px solid #374151;color:#cbd5e1;margin-top:10px}
+
+    .sidebar-footer{margin-top:14px;font-size:12px;opacity:.85;line-height:1.4}
+
+    .main{flex:1;padding:24px}
+    .topbar{display:flex;justify-content:space-between;align-items:center;margin-bottom:18px}
+    .page-title{font-size:24px;font-weight:900}
+    .page-sub{font-size:13px;color:#6b7280;margin-top:4px}
+
+    .grid{display:grid;gap:16px;grid-template-columns:repeat(12,1fr)}
+    .card{background:#fff;border-radius:14px;padding:18px;box-shadow:0 10px 20px rgba(0,0,0,.06)}
+    .span-7{grid-column:span 7}
+    .span-5{grid-column:span 5}
+
+    input{padding:10px 12px;border:1px solid #e5e7eb;border-radius:10px;outline:none;width:100%}
+    input:focus{border-color:#93c5fd}
+
+    table{width:100%;border-collapse:collapse;margin-top:10px}
+    th,td{padding:10px;border-bottom:1px solid #eef2f7;text-align:left;font-size:14px}
+    th{font-size:12px;color:#6b7280}
+    .muted{color:#6b7280;font-size:14px;line-height:1.4}
+    .danger{color:#dc2626;font-weight:700}
+
+    .rowbtn{padding:8px 10px;border-radius:10px;background:#0ea5e9}
+    .rowbtn2{padding:8px 10px;border-radius:10px;background:#111827}
+
+    .total{font-size:22px;font-weight:900}
+    @media (max-width: 900px){
+      .sidebar{width:200px}
+      .main{padding:16px}
+      .grid{grid-template-columns:1fr}
+      .span-7,.span-5{grid-column:span 1}
+    }
+  </style>
+
+  <script type="module" src="./js/sales.js?v=1"></script>
+</head>
+
+<body>
+  <div class="app">
+    <aside class="sidebar">
+      <div class="brand">
+        <div class="logo">KS</div>
+        <div>
+          <div class="brand-title">Kairo System</div>
+          <div class="brand-sub">Inventory & Sales</div>
+        </div>
+      </div>
+
+      <nav class="nav">
+        <a href="./dashboard.html">Dashboard</a>
+        <a href="./inventory.html">Inventory</a>
+        <a class="active" href="./sales.html">Sales</a>
+        <a href="#" id="navReports">Reports</a>
+        <a href="#" id="navAdmin">Admin</a>
+      </nav>
+
+      <button class="btn btn-ghost" id="logoutBtn">Logout</button>
+
+      <div class="sidebar-footer">
+        Signed in as:<br>
+        <strong id="userEmail">Loading…</strong>
+      </div>
+    </aside>
+
+    <main class="main">
+      <header class="topbar">
+        <div>
+          <div class="page-title">Sales</div>
+          <div class="page-sub">Create a new sale and auto-deduct stock</div>
+        </div>
+      </header>
+
+      <section class="grid">
+        <!-- PRODUCTS -->
+        <div class="card span-7">
+          <div style="display:flex;justify-content:space-between;gap:10px;align-items:center;flex-wrap:wrap;">
+            <h3>Products</h3>
+            <input id="search" placeholder="Search product..." style="max-width:260px;">
+          </div>
+
+          <div id="productNote" class="muted" style="margin-top:10px;">Loading products…</div>
+
+          <table>
+            <thead>
+              <tr>
+                <th>Product</th>
+                <th>Price</th>
+                <th>Stock</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody id="productBody"></tbody>
+          </table>
+        </div>
+
+        <!-- CART -->
+        <div class="card span-5">
+          <h3>Cart</h3>
+
+          <div id="cartEmpty" class="muted" style="margin-top:10px;">No items yet.</div>
+
+          <table>
+            <thead>
+              <tr>
+                <th>Item</th>
+                <th>Qty</th>
+                <th>Sub</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody id="cartBody"></tbody>
+          </table>
+
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-top:14px;">
+            <div class="muted">Total</div>
+            <div class="total" id="total">₱0.00</div>
+          </div>
+
+          <div id="err" class="danger" style="margin-top:10px;"></div>
+
+          <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:12px;">
+            <button class="btn rowbtn2" id="clearBtn">Clear</button>
+            <button class="btn" id="checkoutBtn">Checkout</button>
+          </div>
+
+          <div id="msg" class="muted" style="margin-top:10px;"></div>
+        </div>
+      </section>
+    </main>
+  </div>
+</body>
+</html>
