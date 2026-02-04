@@ -1,21 +1,15 @@
 import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm";
 
-export const supabase = createClient(
-  "https://qdvbglwslsjumvqunrob.supabase.co",
-  "sb_publishable_JDcbWNmeTj4STn5STKYoOA_IbebKpuN"
-);
+/*
+  IMPORTANT:
+  - Use your Project URL from Supabase Settings -> API
+  - Use your anon public key (starts with "eyJ..."), NOT sb_publishable_...
+*/
 
-console.log("LIVE supabase URL:", supabase.supabaseUrl);
+const SUPABASE_URL = "https://qdvbglwslsjumvqunrob.supabase.co";
+const SUPABASE_ANON_KEY = "sb_publishable_JDcbWNmeTj4STn5STKYoOA_IbebKpuN";
 
+export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-console.log("Supabase URL:", supabase.supabaseUrl);
-console.log("Anon key first 20:", "eyJhbGciOi...".slice(0, 20)); // or your variable if you stored it
-
-
-
-
-
-
-
-
-
+// Debug (safe to keep while testing)
+console.log("Supabase URL loaded:", supabase.supabaseUrl);
