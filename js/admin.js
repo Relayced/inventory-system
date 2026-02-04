@@ -41,33 +41,35 @@ async function getMyRole(userId) {
 let allUsers = [];
 
 function renderUsers() {
-  const q = el("search").value.trim().toLowerCase();
+  const q = (el("search")?.value || "").trim().toLowerCase();
   const filtered = allUsers.filter((u) => (u.email || "").toLowerCase().includes(q));
 
   el("note").textContent = filtered.length ? "" : "No matching users.";
-  el("userBody").innerHTML = filtered.map((u) => {
-    const role = u.role === "admin" ? "admin" : "staff";
-    return `
-      <tr>
-        <td>${escapeHtml(u.email || "")}</td>
-        <td>
-          <span class="pill ${role}">${role.toUpperCase()}</span>
-          <div style="height:8px"></div>
-          <select data-role="${u.id}">
-            <option value="staff" ${role === "staff" ? "selected" : ""}>staff</option>
-            <option value="admin" ${role === "admin" ? "selected" : ""}>admin</option>
-          </select>
-        </td>
-        <td>${fmtDate(u.created_at)}</td>
-        <td>
-          <div class="row-actions">
-            <button class="btn mini save" data-save="${u.id}">Save</button>
-            <button class="btn mini copy" data-copy="${u.id}">Copy ID</button>
-          </div>
-        </td>
-      </tr>
-    `;
-  }).join("");
+  el("userBody").innerHTML = filtered
+    .map((u) => {
+      const role = u.role === "admin" ? "admin" : "staff";
+      return `
+        <tr>
+          <td>${escapeHtml(u.email || "")}</td>
+          <td>
+            <span class="pill ${role}">${role.toUpperCase()}</span>
+            <div style="height:8px"></div>
+            <select data-role="${u.id}">
+              <option value="staff" ${role === "staff" ? "selected" : ""}>staff</option>
+              <option value="admin" ${role === "admin" ? "selected" : ""}>admin</option>
+            </select>
+          </td>
+          <td>${fmtDate(u.created_at)}</td>
+          <td>
+            <div class="row-actions">
+              <button class="btn mini save" data-save="${u.id}">Save</button>
+              <button class="btn mini copy" data-copy="${u.id}">Copy ID</button>
+            </div>
+          </td>
+        </tr>
+      `;
+    })
+    .join("");
 
   // Save role buttons
   document.querySelectorAll("button[data-save]").forEach((btn) => {
@@ -83,7 +85,7 @@ function renderUsers() {
 
       const { error } = await supabase.rpc("admin_set_user_role", {
         p_user_id: userId,
-        p_role: newRole
+        p_role: newRole,
       });
 
       if (error) {
@@ -129,6 +131,61 @@ async function loadUsers() {
   renderUsers();
 }
 
+/* =========================
+   INVITE USER (ADMIN)
+========================= */
+async function inviteUser() {
+  el("err").textContent = "";
+  el("msg").textContent = "";
+
+  const email = (el("newEmail")?.value || "").trim().toLowerCase();
+  const role = el("newRole")?.value || "staff";
+
+  if (!email || !email.includes("@")) {
+    el("err").textContent = "Please enter a valid email.";
+    return;
+  }
+
+  el("msg").textContent = "Sending invite…";
+
+  const { data: sessionData } = await supabase.auth.getSession();
+  const token = sessionData?.session?.access_token;
+
+  if (!token) {
+    el("err").textContent = "Session token missing. Logout/login again.";
+    el("msg").textContent = "";
+    return;
+  }
+
+  try {
+    const res = await fetch(FUNCTION_URL, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: "Bearer " + token,
+      },
+      body: JSON.stringify({ email, role }),
+    });
+
+    const json = await res.json().catch(() => ({}));
+
+    if (!res.ok) {
+      el("err").textContent = json.error || `Invite failed (${res.status})`;
+      el("msg").textContent = "";
+      return;
+    }
+
+    el("msg").textContent = "✅ Invite sent! (User must check email)";
+    if (el("newEmail")) el("newEmail").value = "";
+    if (el("newRole")) el("newRole").value = "staff";
+
+    await loadUsers();
+  } catch (e) {
+    el("err").textContent = "Invite error: " + String(e);
+    el("msg").textContent = "";
+  }
+}
+
 async function main() {
   const user = await requireAuth();
   if (!user) return;
@@ -144,10 +201,13 @@ async function main() {
     return;
   }
 
-  el("search").addEventListener("input", renderUsers);
-  el("refreshBtn").addEventListener("click", loadUsers);
+  el("search")?.addEventListener("input", renderUsers);
+  el("refreshBtn")?.addEventListener("click", loadUsers);
 
-  el("logoutBtn").addEventListener("click", async () => {
+  // ✅ Invite user button handler
+  el("createUserBtn")?.addEventListener("click", inviteUser);
+
+  el("logoutBtn")?.addEventListener("click", async () => {
     await supabase.auth.signOut();
     window.location.href = "./index.html";
   });
