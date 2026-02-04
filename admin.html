@@ -13,21 +13,10 @@
     .sidebar{width:250px;background:#111827;color:#fff;display:flex;flex-direction:column;padding:20px}
     .brand{display:flex;gap:12px;align-items:center;margin-bottom:22px}
     .logo{
-    width:42px;
-    height:42px;
-    border-radius:10px;
-    display:flex;
-    align-items:center;
-    justify-content:center;
-    overflow:hidden;
+      width:42px;height:42px;border-radius:10px;display:flex;
+      align-items:center;justify-content:center;overflow:hidden;
     }
-
-    .logo img{
-      width:100%;
-      height:100%;
-      object-fit:contain; /* use 'cover' if you want it filled */
-    }
-
+    .logo img{width:100%;height:100%;object-fit:contain}
     .brand-title{font-size:18px;font-weight:900}
     .brand-sub{font-size:12px;opacity:.7}
 
@@ -48,9 +37,7 @@
     .muted{color:#6b7280;font-size:14px;line-height:1.4}
     .danger{color:#dc2626;font-weight:800}
 
-    input,select{
-      padding:10px 12px;border:1px solid #e5e7eb;border-radius:10px;outline:none
-    }
+    input,select{padding:10px 12px;border:1px solid #e5e7eb;border-radius:10px;outline:none}
     input:focus,select:focus{border-color:#93c5fd}
 
     table{width:100%;border-collapse:collapse;margin-top:12px}
@@ -73,16 +60,16 @@
   </style>
 
   <!-- IMPORTANT: bump version so GitHub Pages loads newest JS -->
-  <script type="module" src="./js/admin.js?v=3"></script>
+  <script type="module" src="./js/admin.js?v=4"></script>
 </head>
 
 <body>
   <div class="app">
     <aside class="sidebar">
       <div class="brand">
-       <div class="logo">
-       <img src="./images/kairo_logo.jpg" alt="Kairo System Logo">
-       </div>
+        <div class="logo">
+          <img src="./images/kairo_logo.jpg" alt="Kairo System Logo">
+        </div>
 
         <div>
           <div class="brand-title">Kairo System</div>
@@ -121,14 +108,12 @@
       </header>
 
       <div class="card">
-        <!-- Messages -->
         <div class="muted" id="note">Loading users…</div>
         <div class="danger" id="err" style="margin-top:10px;"></div>
         <div class="muted" id="msg" style="margin-top:10px;"></div>
 
         <div style="height:18px;"></div>
 
-        <!-- Create section -->
         <h3 style="margin-bottom:8px;">Create Account</h3>
 
         <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:end;">
@@ -137,7 +122,6 @@
             <input id="newEmail" placeholder="name@gmail.com" />
           </div>
 
-          <!-- ✅ ADDED PASSWORD FIELD -->
           <div style="display:flex;flex-direction:column;gap:6px;min-width:240px;flex:1;">
             <label style="font-size:12px;color:#6b7280;">Password</label>
             <input id="newPassword" type="password" placeholder="Create a password" />
@@ -160,7 +144,6 @@
 
         <div style="height:18px;"></div>
 
-        <!-- User table -->
         <h3>Users</h3>
 
         <table>
