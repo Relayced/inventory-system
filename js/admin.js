@@ -1,6 +1,6 @@
 import { supabase } from "./supabase.js";
 
-const FUNCTION_URL = "https://qdvbglwslsjumvqunrob.functions.supabase.co/admin-create-user";
+const FUNCTION_URL = "https://qdvbglwslsjumvqunrob.supabase.co/functions/v1/admin-create-user";
 const el = (id) => document.getElementById(id);
 
 function escapeHtml(str) {
