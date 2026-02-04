@@ -148,7 +148,6 @@ async function inviteUser() {
 
   el("msg").textContent = "Sending invite…";
 
-  // ✅ FIX 1: Get token in the most reliable way
   const { data: sessionWrap, error: sessErr } = await supabase.auth.getSession();
   const session = sessionWrap?.session;
 
@@ -159,8 +158,6 @@ async function inviteUser() {
   }
 
   const token = session.access_token;
-
-  // Optional debug (you can remove later)
   console.log("ACCESS TOKEN length:", token.length);
 
   try {
@@ -173,11 +170,22 @@ async function inviteUser() {
       body: JSON.stringify({ email, role }),
     });
 
-    // If response isn't JSON, this prevents crashing
-    const json = await res.json().catch(() => ({}));
+    // ✅ PATCH: read raw text first, then try JSON
+    const text = await res.text().catch(() => "");
+    let json = {};
+    try {
+      json = text ? JSON.parse(text) : {};
+    } catch {}
 
     if (!res.ok) {
-      el("err").textContent = json.error || `Invite failed (${res.status})`;
+      console.log("Invite failed status:", res.status);
+      console.log("Invite failed raw body:", text);
+
+      el("err").textContent =
+        (json && (json.error || json.details)) ||
+        text ||
+        `Invite failed (${res.status})`;
+
       el("msg").textContent = "";
       return;
     }
@@ -202,7 +210,6 @@ async function main() {
   const myRole = await getMyRole(user.id);
   el("userRole").textContent = myRole;
 
-  // Only admins can use Admin page
   if (myRole !== "admin") {
     window.location.href = "./dashboard.html";
     return;
@@ -210,8 +217,6 @@ async function main() {
 
   el("search")?.addEventListener("input", renderUsers);
   el("refreshBtn")?.addEventListener("click", loadUsers);
-
-  // Invite user button
   el("createUserBtn")?.addEventListener("click", inviteUser);
 
   el("logoutBtn")?.addEventListener("click", async () => {
