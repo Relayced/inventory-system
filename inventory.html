@@ -79,7 +79,8 @@
     }
   </style>
 
-  <script type="module" src="./js/inventory.js"></script>
+  <!-- cache-buster helps GitHub Pages load latest JS -->
+  <script type="module" src="./js/inventory.js?v=1"></script>
 </head>
 
 <body>
@@ -118,7 +119,8 @@
         </div>
       </header>
 
-      <div class="card" id="adminTools" class="hidden">
+      <!-- FIX: combine classes properly -->
+      <div class="card hidden" id="adminTools">
         <h3 style="margin-bottom:10px;">Admin Tools</h3>
         <p class="muted" id="adminHint">Only admins can add products / update stock.</p>
 
@@ -146,6 +148,7 @@
         <div style="margin-top:12px;display:flex;gap:10px;flex-wrap:wrap;">
           <button class="btn" id="addProductBtn">Add Product</button>
           <button class="btn" id="refreshBtn">Refresh List</button>
+          <button class="btn" id="debugBtn" style="background:#0ea5e9">Debug Auth</button>
         </div>
 
         <div id="msg" class="muted" style="margin-top:10px;"></div>
@@ -177,18 +180,17 @@
       </div>
     </main>
   </div>
-</body>
 
+  <!-- ✅ FIX: keep module script INSIDE body -->
   <script type="module">
-  import { supabase } from "./js/supabase.js";
+    import { supabase } from "./js/supabase.js";
 
-  // Temporary debug: prints the logged in user in console
-  window.debugAuth = async () => {
-    const res = await supabase.auth.getUser();
-    console.log("AUTH CHECK:", res);
-    alert(res?.data?.user ? "Logged in ✅" : "Not logged in ❌");
-  };
-</script>
-
-  
+    // debug button to check if you are logged in on this page
+    document.getElementById("debugBtn")?.addEventListener("click", async () => {
+      const res = await supabase.auth.getUser();
+      console.log("AUTH CHECK:", res);
+      alert(res?.data?.user ? "Logged in ✅" : "Not logged in ❌");
+    });
+  </script>
+</body>
 </html>
