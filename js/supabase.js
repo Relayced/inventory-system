@@ -5,4 +5,7 @@ export const supabase = createClient(
   "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFkdmJnbHdzbHNqdW12cXVucm9iIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzAxNzg4ODYsImV4cCI6MjA4NTc1NDg4Nn0.WW9U6puKGl76sdGqGO4jtXtRlOylu5Kn1vjf-W9S47Q"
 );
 
+console.log("Supabase URL:", supabase.supabaseUrl);
+console.log("Anon key first 20:", "eyJhbGciOi...".slice(0, 20)); // or your variable if you stored it
+
 
