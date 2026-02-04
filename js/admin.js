@@ -1,6 +1,5 @@
 import { supabase } from "./supabase.js";
 
-const FUNCTION_URL = "https://qdvbglwslsjumvqunrob.functions.supabase.co/admin-create-user";
 const el = (id) => document.getElementById(id);
 
 function escapeHtml(str) {
@@ -15,11 +14,15 @@ function escapeHtml(str) {
 function fmtDate(iso) {
   if (!iso) return "";
   const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "";
   return d.toISOString().slice(0, 10);
 }
 
 async function requireAuth() {
-  const { data } = await supabase.auth.getUser();
+  const { data, error } = await supabase.auth.getUser();
+  if (error) {
+    console.error("getUser error:", error);
+  }
   if (!data?.user) {
     window.location.href = "./index.html";
     return null;
@@ -42,7 +45,9 @@ let allUsers = [];
 
 function renderUsers() {
   const q = (el("search")?.value || "").trim().toLowerCase();
-  const filtered = allUsers.filter((u) => (u.email || "").toLowerCase().includes(q));
+  const filtered = allUsers.filter((u) =>
+    String(u.email || "").toLowerCase().includes(q)
+  );
 
   el("note").textContent = filtered.length ? "" : "No matching users.";
   el("userBody").innerHTML = filtered
@@ -79,7 +84,7 @@ function renderUsers() {
 
       const userId = btn.getAttribute("data-save");
       const sel = document.querySelector(`select[data-role="${userId}"]`);
-      const newRole = sel?.value;
+      const newRole = sel?.value || "staff";
 
       el("msg").textContent = "Saving role…";
 
@@ -132,7 +137,8 @@ async function loadUsers() {
 }
 
 /* =========================
-   INVITE USER (ADMIN)
+   INVITE USER (ADMIN) - FIXED
+   Uses supabase.functions.invoke
 ========================= */
 async function inviteUser() {
   el("err").textContent = "";
@@ -148,57 +154,29 @@ async function inviteUser() {
 
   el("msg").textContent = "Sending invite…";
 
-  const { data: sessionWrap, error: sessErr } = await supabase.auth.getSession();
-  const session = sessionWrap?.session;
+  // This sends your logged-in user's JWT automatically
+  const { data, error } = await supabase.functions.invoke("admin-create-user", {
+    body: { email, role },
+  });
 
-  if (sessErr || !session?.access_token) {
-    el("err").textContent = "No session token. Please logout/login again.";
+  if (error) {
+    console.error("Invite invoke error:", error);
+    el("err").textContent = error.message || "Invite failed.";
     el("msg").textContent = "";
     return;
   }
 
-  const token = session.access_token;
-  console.log("ACCESS TOKEN length:", token.length);
-
-  try {
-    const res = await fetch(FUNCTION_URL, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: "Bearer " + token,
-      },
-      body: JSON.stringify({ email, role }),
-    });
-
-    // ✅ PATCH: read raw text first, then try JSON
-    const text = await res.text().catch(() => "");
-    let json = {};
-    try {
-      json = text ? JSON.parse(text) : {};
-    } catch {}
-
-    if (!res.ok) {
-      console.log("Invite failed status:", res.status);
-      console.log("Invite failed raw body:", text);
-
-      el("err").textContent =
-        (json && (json.error || json.details)) ||
-        text ||
-        `Invite failed (${res.status})`;
-
-      el("msg").textContent = "";
-      return;
-    }
-
+  // Optional: function can return message/details
+  if (data?.message) {
+    el("msg").textContent = "✅ " + data.message;
+  } else {
     el("msg").textContent = "✅ Invite sent! (User must check email)";
-    if (el("newEmail")) el("newEmail").value = "";
-    if (el("newRole")) el("newRole").value = "staff";
-
-    await loadUsers();
-  } catch (e) {
-    el("err").textContent = "Invite error: " + String(e);
-    el("msg").textContent = "";
   }
+
+  if (el("newEmail")) el("newEmail").value = "";
+  if (el("newRole")) el("newRole").value = "staff";
+
+  await loadUsers();
 }
 
 async function main() {
