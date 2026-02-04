@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Dashboard</title>
+  <script type="module" src="js/auth.js"></script>
+</head>
+<body>
+
+  <h1>Dashboard</h1>
+  <button id="logout">Logout</button>
+
+  <script type="module">
+    import { supabase } from "./js/supabase.js";
+
+    document.getElementById("logout").onclick = async () => {
+      await supabase.auth.signOut();
+      window.location.href = "index.html";
+    };
+  </script>
+
+</body>
+</html>
