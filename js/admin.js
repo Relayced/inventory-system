@@ -20,9 +20,8 @@ function fmtDate(iso) {
 
 async function requireAuth() {
   const { data, error } = await supabase.auth.getUser();
-  if (error) {
-    console.error("getUser error:", error);
-  }
+  if (error) console.error("getUser error:", error);
+
   if (!data?.user) {
     window.location.href = "./index.html";
     return null;
@@ -137,14 +136,16 @@ async function loadUsers() {
 }
 
 /* =========================
-   INVITE USER (ADMIN)
-   ✅ Added session check BEFORE invoke
+   CREATE ACCOUNT (ADMIN)
+   Uses Edge Function: admin-create-account
+   ✅ Includes session check + better errors
 ========================= */
 async function inviteUser() {
   el("err").textContent = "";
   el("msg").textContent = "";
 
   const email = (el("newEmail")?.value || "").trim().toLowerCase();
+  const password = el("newPassword")?.value || "";
   const role = el("newRole")?.value || "staff";
 
   if (!email || !email.includes("@")) {
@@ -152,9 +153,14 @@ async function inviteUser() {
     return;
   }
 
+  if (password.length < 6) {
+    el("err").textContent = "Password must be at least 6 characters.";
+    return;
+  }
+
   el("msg").textContent = "Checking session…";
 
-  // ✅ PROVE if you really have a login token
+  // ✅ Ensure token exists (so invoke attaches auth)
   const { data: sessionWrap, error: sessionErr } = await supabase.auth.getSession();
   const token = sessionWrap?.session?.access_token;
 
@@ -168,11 +174,11 @@ async function inviteUser() {
     return;
   }
 
-  el("msg").textContent = "Sending invite…";
+  el("msg").textContent = "Creating account…";
 
   try {
-    const { data, error } = await supabase.functions.invoke("admin-create-user", {
-      body: { email, role },
+    const { data, error } = await supabase.functions.invoke("admin-create-account", {
+      body: { email, password, role },
     });
 
     if (error) {
@@ -191,29 +197,30 @@ async function inviteUser() {
         JSON.stringify(error);
 
       el("err").textContent =
-        `Invite failed (status ${status}): ` +
+        `Create failed (status ${status}): ` +
         (typeof body === "string" ? body : JSON.stringify(body));
 
       el("msg").textContent = "";
       return;
     }
 
-    console.log("Invite success:", data);
+    console.log("Create success:", data);
 
     if (data?.message) {
       el("msg").textContent = "✅ " + data.message;
     } else {
-      el("msg").textContent = "✅ Invite sent! (User must check email)";
+      el("msg").textContent = "✅ Account created!";
     }
 
     if (el("newEmail")) el("newEmail").value = "";
+    if (el("newPassword")) el("newPassword").value = "";
     if (el("newRole")) el("newRole").value = "staff";
 
     await loadUsers();
   } catch (e) {
     console.error("Invoke crashed:", e);
     el("err").textContent =
-      "Invite request crashed (network/CORS). Check DevTools → Console/Network.";
+      "Create request crashed (network/CORS). Check DevTools → Console/Network.";
     el("msg").textContent = "";
   }
 }
@@ -234,6 +241,8 @@ async function main() {
 
   el("search")?.addEventListener("input", renderUsers);
   el("refreshBtn")?.addEventListener("click", loadUsers);
+
+  // button still uses the same handler name (inviteUser) to keep your wiring unchanged
   el("createUserBtn")?.addEventListener("click", inviteUser);
 
   el("logoutBtn")?.addEventListener("click", async () => {
