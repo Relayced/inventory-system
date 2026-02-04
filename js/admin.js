@@ -1,5 +1,6 @@
 import { supabase } from "./supabase.js";
 
+const FUNCTION_URL = "PASTE_YOUR_EDGE_FUNCTION_URL_HERE";
 const el = (id) => document.getElementById(id);
 
 function escapeHtml(str) {
