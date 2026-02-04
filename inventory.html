@@ -12,7 +12,15 @@
 
     .sidebar{width:250px;background:#111827;color:#fff;display:flex;flex-direction:column;padding:20px}
     .brand{display:flex;gap:12px;align-items:center;margin-bottom:22px}
-    .logo{width:42px;height:42px;border-radius:10px;background:#2563eb;display:flex;align-items:center;justify-content:center;font-weight:900}
+
+    /* ✅ LOGO IMAGE */
+    .logo{
+      width:42px;height:42px;border-radius:10px;
+      display:flex;align-items:center;justify-content:center;
+      overflow:hidden;background:#111827;
+    }
+    .logo img{width:100%;height:100%;object-fit:contain;display:block}
+
     .brand-title{font-size:18px;font-weight:900}
     .brand-sub{font-size:12px;opacity:.7}
 
@@ -33,9 +41,7 @@
     .muted{color:#6b7280;font-size:14px;line-height:1.4}
     .danger{color:#dc2626;font-weight:800}
 
-    input,select{
-      padding:10px 12px;border:1px solid #e5e7eb;border-radius:10px;outline:none
-    }
+    input,select{padding:10px 12px;border:1px solid #e5e7eb;border-radius:10px;outline:none}
     input:focus,select:focus{border-color:#93c5fd}
 
     table{width:100%;border-collapse:collapse;margin-top:12px}
@@ -47,7 +53,6 @@
     .status.low{background:#e0f2fe;color:#0369a1}
     .status.out{background:#fee2e2;color:#991b1b}
 
-    /* you can keep this if other pages use it */
     .hidden{display:none}
 
     @media (max-width: 900px){
@@ -56,15 +61,18 @@
     }
   </style>
 
-  <!-- ✅ FIX: bump version so GitHub Pages loads newest JS -->
-  <script type="module" src="./js/inventory.js?v=9999"></script>
+  <!-- ✅ bump version to force GitHub Pages refresh -->
+  <script type="module" src="./js/inventory.js?v=10001"></script>
 </head>
 
 <body>
   <div class="app">
     <aside class="sidebar">
       <div class="brand">
-        <div class="logo">KS</div>
+        <div class="logo">
+          <!-- ✅ put your image here: /images/kairo_logo.png -->
+          <img src="./images/kairo_logo.png" alt="Kairo System Logo">
+        </div>
         <div>
           <div class="brand-title">Kairo System</div>
           <div class="brand-sub">Inventory & Sales</div>
@@ -101,7 +109,6 @@
         </div>
       </header>
 
-      <!-- ✅ FIX: removed "hidden" so admin section can show -->
       <div class="card" id="adminTools">
         <h3 style="margin-bottom:10px;">Add Product</h3>
 
@@ -130,6 +137,7 @@
         </div>
 
         <div class="muted" id="msg" style="margin-top:10px;"></div>
+        <div class="danger" id="err" style="margin-top:8px;"></div>
       </div>
 
       <div style="height:14px;"></div>
