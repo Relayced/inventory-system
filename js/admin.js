@@ -2,6 +2,9 @@ import { supabase } from "./supabase.js";
 
 const el = (id) => document.getElementById(id);
 
+// ✅ CHANGE THIS if your Edge Function name is different in Supabase
+const FUNCTION_NAME = "admin-create-user";
+
 function escapeHtml(str) {
   return String(str)
     .replaceAll("&", "&amp;")
@@ -136,9 +139,23 @@ async function loadUsers() {
 }
 
 /* =========================
+   OPTIONAL: PING FUNCTION
+   Helps you confirm the function exists & CORS is OK
+========================= */
+async function pingFunction() {
+  try {
+    const { data, error } = await supabase.functions.invoke(FUNCTION_NAME, {
+      body: { ping: true },
+    });
+    console.log("PING data:", data);
+    console.log("PING error:", error);
+  } catch (e) {
+    console.error("PING crashed:", e);
+  }
+}
+
+/* =========================
    CREATE ACCOUNT (ADMIN)
-   Uses Edge Function: admin-create-account
-   ✅ Includes session check + better errors
 ========================= */
 async function inviteUser() {
   el("err").textContent = "";
@@ -160,7 +177,6 @@ async function inviteUser() {
 
   el("msg").textContent = "Checking session…";
 
-  // ✅ Ensure token exists (so invoke attaches auth)
   const { data: sessionWrap, error: sessionErr } = await supabase.auth.getSession();
   const token = sessionWrap?.session?.access_token;
 
@@ -177,12 +193,21 @@ async function inviteUser() {
   el("msg").textContent = "Creating account…";
 
   try {
-    const { data, error } = await supabase.functions.invoke("admin-create-account", {
+    const { data, error } = await supabase.functions.invoke(FUNCTION_NAME, {
       body: { email, password, role },
     });
 
     if (error) {
       console.error("Edge Function error object:", error);
+
+      // If function is missing/not deployed, SDK often shows "Failed to send request"
+      if ((error.message || "").toLowerCase().includes("failed to send")) {
+        el("err").textContent =
+          `Create failed: Cannot reach Edge Function "${FUNCTION_NAME}". ` +
+          `Check: (1) function name matches in Supabase, (2) function is deployed, (3) CORS/OPTIONS is handled.`;
+        el("msg").textContent = "";
+        return;
+      }
 
       const status =
         error.status ??
@@ -206,11 +231,7 @@ async function inviteUser() {
 
     console.log("Create success:", data);
 
-    if (data?.message) {
-      el("msg").textContent = "✅ " + data.message;
-    } else {
-      el("msg").textContent = "✅ Account created!";
-    }
+    el("msg").textContent = data?.message ? "✅ " + data.message : "✅ Account created!";
 
     if (el("newEmail")) el("newEmail").value = "";
     if (el("newPassword")) el("newPassword").value = "";
@@ -220,7 +241,7 @@ async function inviteUser() {
   } catch (e) {
     console.error("Invoke crashed:", e);
     el("err").textContent =
-      "Create request crashed (network/CORS). Check DevTools → Console/Network.";
+      `Create request crashed (network/CORS). Make sure Edge Function "${FUNCTION_NAME}" exists and is deployed.`;
     el("msg").textContent = "";
   }
 }
@@ -241,8 +262,6 @@ async function main() {
 
   el("search")?.addEventListener("input", renderUsers);
   el("refreshBtn")?.addEventListener("click", loadUsers);
-
-  // button still uses the same handler name (inviteUser) to keep your wiring unchanged
   el("createUserBtn")?.addEventListener("click", inviteUser);
 
   el("logoutBtn")?.addEventListener("click", async () => {
@@ -251,6 +270,9 @@ async function main() {
   });
 
   await loadUsers();
+
+  // Optional: uncomment for debugging
+  // await pingFunction();
 }
 
 main();
