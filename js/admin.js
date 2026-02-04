@@ -138,7 +138,7 @@ async function loadUsers() {
 
 /* =========================
    INVITE USER (ADMIN)
-   Shows exact non-2xx error
+   ✅ Added session check BEFORE invoke
 ========================= */
 async function inviteUser() {
   el("err").textContent = "";
@@ -152,6 +152,22 @@ async function inviteUser() {
     return;
   }
 
+  el("msg").textContent = "Checking session…";
+
+  // ✅ PROVE if you really have a login token
+  const { data: sessionWrap, error: sessionErr } = await supabase.auth.getSession();
+  const token = sessionWrap?.session?.access_token;
+
+  console.log("Session error:", sessionErr);
+  console.log("Access token exists?", !!token);
+  console.log("Access token length:", token ? token.length : 0);
+
+  if (!token) {
+    el("err").textContent = "No login session found. Logout then login again.";
+    el("msg").textContent = "";
+    return;
+  }
+
   el("msg").textContent = "Sending invite…";
 
   try {
@@ -159,7 +175,6 @@ async function inviteUser() {
       body: { email, role },
     });
 
-    // Edge Function returned non-2xx => details are inside `error`
     if (error) {
       console.error("Edge Function error object:", error);
 
