@@ -1,158 +1,167 @@
-import { supabase } from "./supabase.js";
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Dashboard</title>
 
-// Helpers
-const peso = (n) => `₱${Number(n || 0).toFixed(2)}`;
-const el = (id) => document.getElementById(id);
+  <style>
+    *{box-sizing:border-box;margin:0;padding:0;font-family:Segoe UI,Arial,sans-serif}
+    body{background:#f4f6f8;color:#111}
+    .app{display:flex;min-height:100vh}
 
-async function requireAuth() {
-  const { data, error } = await supabase.auth.getUser();
-  if (error || !data?.user) {
-    window.location.href = "./index.html";
-    return null;
-  }
-  return data.user;
-}
-
-async function getMyRole(userId) {
-  const { data, error } = await supabase
-    .from("profiles")
-    .select("role,full_name")
-    .eq("id", userId)
-    .single();
-
-  if (error) {
-    console.error("Role read failed:", error);
-    return { role: "staff", full_name: "" };
-  }
-
-  return { role: data?.role || "staff", full_name: data?.full_name || "" };
-}
-
-function escapeHtml(str) {
-  return String(str)
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;")
-    .replaceAll("'", "&#039;");
-}
-
-async function loadCounts(userId) {
-  // Products count
-  const { count: productCount } = await supabase
-    .from("products")
-    .select("id", { count: "exact", head: true });
-
-  el("productCount").textContent = productCount ?? 0;
-
-  // Low stock list (join products + inventory)
-  const { data: lowList, error: lowErr } = await supabase
-    .from("inventory")
-    .select("stock, products:product_id(id,name,min_stock)")
-    .order("updated_at", { ascending: true });
-
-  if (lowErr) {
-    el("lowStockNote").textContent = "Cannot load low stock (RLS or table issue).";
-    el("lowStockList").innerHTML = "";
-    el("lowStockCount").textContent = "0";
-  } else {
-    const lows = (lowList || [])
-      .map((row) => ({
-        name: row.products?.name ?? "Unknown",
-        stock: row.stock ?? 0,
-        min: row.products?.min_stock ?? 0
-      }))
-      .filter((x) => x.stock <= x.min);
-
-    el("lowStockCount").textContent = lows.length;
-
-    if (lows.length === 0) {
-      el("lowStockNote").textContent = "No low-stock items 🎉";
-      el("lowStockList").innerHTML = "";
-    } else {
-      el("lowStockNote").textContent = "Items that need restocking:";
-      el("lowStockList").innerHTML = lows
-        .map((x) => {
-          const isOut = x.stock <= 0;
-          return `
-            <div class="list-item">
-              <div>
-                <div class="li-title">${escapeHtml(x.name)}</div>
-                <div class="li-sub">Stock: ${x.stock} • Min: ${x.min}</div>
-              </div>
-              <div class="badge">${isOut ? "OUT" : "LOW"}</div>
-            </div>
-          `;
-        })
-        .join("");
+    .sidebar{
+      width:250px;background:#111827;color:#fff;display:flex;flex-direction:column;padding:20px
     }
-  }
+    .brand{display:flex;gap:12px;align-items:center;margin-bottom:22px}
+    .logo{
+      width:42px;height:42px;border-radius:10px;background:#2563eb;
+      display:flex;align-items:center;justify-content:center;font-weight:900
+    }
+    .brand-title{font-size:18px;font-weight:900}
+    .brand-sub{font-size:12px;opacity:.7}
 
-  // Sales totals (timezone-safe)
-  const now = new Date();
+    .nav{flex:1;margin-top:6px}
+    .nav a{
+      display:block;text-decoration:none;color:#cbd5e1;padding:12px 14px;border-radius:10px;margin-bottom:6px
+    }
+    .nav a:hover,.nav a.active{background:#1f2937;color:#fff}
 
-  // Start/end of today in local time -> convert to ISO (UTC) for Supabase comparison
-  const startOfTodayLocal = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0);
-  const endOfTodayLocal = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1, 0, 0, 0);
+    .btn{
+      border:0;border-radius:10px;padding:10px 14px;cursor:pointer;background:#2563eb;color:#fff;font-weight:600
+    }
+    .btn-ghost{background:transparent;border:1px solid #374151;color:#cbd5e1;margin-top:10px}
+    .sidebar-footer{margin-top:14px;font-size:12px;opacity:.85;line-height:1.4}
 
-  // Start of month in local time -> ISO (UTC)
-  const startOfMonthLocal = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0);
+    .main{flex:1;padding:24px}
+    .topbar{
+      display:flex;justify-content:space-between;align-items:flex-end;margin-bottom:18px;gap:12px;flex-wrap:wrap
+    }
+    .page-title{font-size:24px;font-weight:900}
+    .page-sub{font-size:13px;color:#6b7280;margin-top:4px}
 
-  const startTodayISO = startOfTodayLocal.toISOString();
-  const endTodayISO = endOfTodayLocal.toISOString();
-  const startMonthISO = startOfMonthLocal.toISOString();
+    .grid{
+      display:grid;grid-template-columns:repeat(12,1fr);gap:14px
+    }
+    .card{
+      background:#fff;border-radius:14px;padding:18px;box-shadow:0 10px 20px rgba(0,0,0,.06)
+    }
+    .muted{color:#6b7280;font-size:14px;line-height:1.4}
+    .kpi-title{font-size:12px;color:#6b7280;font-weight:700;text-transform:uppercase;letter-spacing:.06em}
+    .kpi-value{font-size:26px;font-weight:900;margin-top:8px}
+    .kpi-sub{margin-top:6px;font-size:12px;color:#6b7280}
 
-  const { data: todaySales, error: todayErr } = await supabase
-    .from("sales")
-    .select("total,created_at")
-    .eq("user_id", userId)
-    .gte("created_at", startTodayISO)
-    .lt("created_at", endTodayISO);
+    .divider{height:1px;background:#eef2f7;margin:14px 0}
 
-  if (todayErr) console.error("Today sales error:", todayErr);
+    .list-item{
+      display:flex;align-items:center;justify-content:space-between;
+      padding:10px 12px;border:1px solid #eef2f7;border-radius:12px;margin-top:10px
+    }
+    .li-title{font-weight:800}
+    .li-sub{font-size:12px;color:#6b7280;margin-top:4px}
+    .badge{
+      font-size:12px;font-weight:900;padding:6px 10px;border-radius:999px;background:#fee2e2;color:#991b1b
+    }
 
-  const { data: monthSales, error: monthErr } = await supabase
-    .from("sales")
-    .select("total,created_at")
-    .eq("user_id", userId)
-    .gte("created_at", startMonthISO);
+    @media (max-width: 1100px){
+      .grid{grid-template-columns:repeat(6,1fr)}
+    }
+    @media (max-width: 900px){
+      .sidebar{width:200px}
+      .main{padding:16px}
+    }
+    @media (max-width: 720px){
+      .grid{grid-template-columns:repeat(2,1fr)}
+    }
+  </style>
 
-  if (monthErr) console.error("Month sales error:", monthErr);
+  <script type="module" src="./js/dashboard.js?v=999"></script>
+</head>
 
-  const todayTotal = (todaySales || []).reduce((a, r) => a + Number(r.total || 0), 0);
-  const monthTotal = (monthSales || []).reduce((a, r) => a + Number(r.total || 0), 0);
+<body>
+  <div class="app">
+    <aside class="sidebar">
+      <div class="brand">
+        <div class="logo">KS</div>
+        <div>
+          <div class="brand-title">Kairo System</div>
+          <div class="brand-sub">Inventory & Sales</div>
+        </div>
+      </div>
 
-  el("todaySales").textContent = peso(todayTotal);
-  el("todayOrders").textContent = `${(todaySales || []).length} orders`;
+      <nav class="nav">
+        <a class="active" href="./dashboard.html">Dashboard</a>
+        <a href="./inventory.html">Inventory</a>
+        <a href="./sales.html">Sales</a>
+        <a href="./reports.html">Reports</a>
+        <a id="adminLink" href="./admin.html" style="display:none;">Admin</a>
+      </nav>
 
-  el("monthSales").textContent = peso(monthTotal);
-  el("monthOrders").textContent = `${(monthSales || []).length} orders`;
-}
+      <button class="btn btn-ghost" id="logoutBtn">Logout</button>
 
-async function main() {
-  const user = await requireAuth();
-  if (!user) return;
+      <div class="sidebar-footer">
+        Signed in as:<br>
+        <strong id="who">Loading…</strong><br>
+        Role: <strong id="role">Loading…</strong>
+      </div>
+    </aside>
 
-  const { role, full_name } = await getMyRole(user.id);
+    <main class="main">
+      <header class="topbar">
+        <div>
+          <div class="page-title">Dashboard</div>
+          <div class="page-sub">Overview of inventory and sales</div>
+        </div>
+      </header>
 
-  // Show user
-  el("who").textContent = full_name ? full_name : (user.email || "User");
-  el("role").textContent = role;
+      <section class="grid">
+        <!-- KPIs -->
+        <div class="card" style="grid-column: span 3;">
+          <div class="kpi-title">Products</div>
+          <div class="kpi-value" id="productCount">0</div>
+          <div class="kpi-sub">Total items listed</div>
+        </div>
 
-  // Admin link (optional)
-  const adminLink = document.getElementById("adminLink");
-  if (adminLink) adminLink.style.display = role === "admin" ? "block" : "none";
+        <div class="card" style="grid-column: span 3;">
+          <div class="kpi-title">Low Stock</div>
+          <div class="kpi-value" id="lowStockCount">0</div>
+          <div class="kpi-sub">Need restocking</div>
+        </div>
 
-  // Logout
-  const logoutBtn = document.getElementById("logoutBtn");
-  if (logoutBtn) {
-    logoutBtn.addEventListener("click", async () => {
-      await supabase.auth.signOut();
-      window.location.href = "./index.html";
-    });
-  }
+        <div class="card" style="grid-column: span 3;">
+          <div class="kpi-title">Today Sales</div>
+          <div class="kpi-value" id="todaySales">₱0.00</div>
+          <div class="kpi-sub" id="todayOrders">0 orders</div>
+        </div>
 
-  await loadCounts(user.id);
-}
+        <div class="card" style="grid-column: span 3;">
+          <div class="kpi-title">This Month</div>
+          <div class="kpi-value" id="monthSales">₱0.00</div>
+          <div class="kpi-sub" id="monthOrders">0 orders</div>
+        </div>
 
-main();
+        <!-- Low stock list -->
+        <div class="card" style="grid-column: span 6;">
+          <div style="display:flex;justify-content:space-between;align-items:end;gap:10px;flex-wrap:wrap;">
+            <div>
+              <div class="kpi-title">Low stock items</div>
+              <div class="muted" id="lowStockNote" style="margin-top:6px;">Loading…</div>
+            </div>
+          </div>
+
+          <div id="lowStockList"></div>
+        </div>
+
+        <!-- Tips -->
+        <div class="card" style="grid-column: span 6;">
+          <div class="kpi-title">Tip</div>
+          <div class="divider"></div>
+          <p class="muted">
+            Tip: If totals stay at 0, make sure you have sales records and your account can read the <b>sales</b> table (RLS).
+          </p>
+        </div>
+      </section>
+    </main>
+  </div>
+</body>
+</html>
