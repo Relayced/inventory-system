@@ -16,19 +16,25 @@ async function requireAuth() {
 async function getMyRole(userId) {
   const { data, error } = await supabase
     .from("profiles")
-    .select("role, full_name")
+    .select("role,full_name")
     .eq("id", userId)
     .single();
 
   if (error) {
-    // show the error on the page so you know what's wrong
-    const roleEl = document.getElementById("userRole");
-    if (roleEl) roleEl.textContent = "ERROR (check console)";
     console.error("Role read failed:", error);
-    return { role: "staff", full_name: null };
+    return { role: "staff", full_name: "" };
   }
 
-  return data;
+  return { role: data?.role || "staff", full_name: data?.full_name || "" };
+}
+
+function escapeHtml(str) {
+  return String(str)
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#039;");
 }
 
 async function loadCounts(userId) {
@@ -82,26 +88,36 @@ async function loadCounts(userId) {
     }
   }
 
-  // Sales totals (your current RLS allows users to view only their own sales)
+  // Sales totals (timezone-safe)
   const now = new Date();
-  const y = now.getFullYear();
-  const m = String(now.getMonth() + 1).padStart(2, "0");
-  const d = String(now.getDate()).padStart(2, "0");
 
-  const startToday = `${y}-${m}-${d}T00:00:00`;
-  const startMonth = `${y}-${m}-01T00:00:00`;
+  // Start/end of today in local time -> convert to ISO (UTC) for Supabase comparison
+  const startOfTodayLocal = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0);
+  const endOfTodayLocal = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1, 0, 0, 0);
 
-  const { data: todaySales } = await supabase
+  // Start of month in local time -> ISO (UTC)
+  const startOfMonthLocal = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0);
+
+  const startTodayISO = startOfTodayLocal.toISOString();
+  const endTodayISO = endOfTodayLocal.toISOString();
+  const startMonthISO = startOfMonthLocal.toISOString();
+
+  const { data: todaySales, error: todayErr } = await supabase
     .from("sales")
     .select("total,created_at")
     .eq("user_id", userId)
-    .gte("created_at", startToday);
+    .gte("created_at", startTodayISO)
+    .lt("created_at", endTodayISO);
 
-  const { data: monthSales } = await supabase
+  if (todayErr) console.error("Today sales error:", todayErr);
+
+  const { data: monthSales, error: monthErr } = await supabase
     .from("sales")
     .select("total,created_at")
     .eq("user_id", userId)
-    .gte("created_at", startMonth);
+    .gte("created_at", startMonthISO);
+
+  if (monthErr) console.error("Month sales error:", monthErr);
 
   const todayTotal = (todaySales || []).reduce((a, r) => a + Number(r.total || 0), 0);
   const monthTotal = (monthSales || []).reduce((a, r) => a + Number(r.total || 0), 0);
@@ -113,56 +129,30 @@ async function loadCounts(userId) {
   el("monthOrders").textContent = `${(monthSales || []).length} orders`;
 }
 
-function escapeHtml(str) {
-  return String(str)
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;")
-    .replaceAll("'", "&#039;");
-}
-
-function setupRealtime() {
-  // Refresh when inventory changes (works great for low-stock alerts)
-  supabase
-    .channel("inventory-realtime")
-    .on(
-      "postgres_changes",
-      { event: "*", schema: "public", table: "inventory" },
-      async () => {
-        const user = await requireAuth();
-        if (!user) return;
-        await loadCounts(user.id);
-      }
-    )
-    .subscribe();
-}
-
 async function main() {
   const user = await requireAuth();
   if (!user) return;
 
-  el("userEmail").textContent = user.email || "(no email)";
+  const { role, full_name } = await getMyRole(user.id);
 
-  const prof = await getMyRole(user.id);
-  el("userRole").textContent = prof.role || "staff";
+  // Show user
+  el("who").textContent = full_name ? full_name : (user.email || "User");
+  el("role").textContent = role;
 
-  // Optional: hide Admin link for staff
-  if ((prof.role || "staff") !== "admin") {
-    el("navAdmin").style.display = "none";
+  // Admin link (optional)
+  const adminLink = document.getElementById("adminLink");
+  if (adminLink) adminLink.style.display = role === "admin" ? "block" : "none";
+
+  // Logout
+  const logoutBtn = document.getElementById("logoutBtn");
+  if (logoutBtn) {
+    logoutBtn.addEventListener("click", async () => {
+      await supabase.auth.signOut();
+      window.location.href = "./index.html";
+    });
   }
 
   await loadCounts(user.id);
-  setupRealtime();
-
-  el("refreshBtn").addEventListener("click", async () => {
-    await loadCounts(user.id);
-  });
-
-  el("logoutBtn").addEventListener("click", async () => {
-    await supabase.auth.signOut();
-    window.location.href = "./index.html";
-  });
 }
 
 main();
