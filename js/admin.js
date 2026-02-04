@@ -137,8 +137,8 @@ async function loadUsers() {
 }
 
 /* =========================
-   INVITE USER (ADMIN) - FIXED
-   Uses supabase.functions.invoke
+   INVITE USER (ADMIN)
+   Shows exact non-2xx error
 ========================= */
 async function inviteUser() {
   el("err").textContent = "";
@@ -154,29 +154,53 @@ async function inviteUser() {
 
   el("msg").textContent = "Sending invite…";
 
-  // This sends your logged-in user's JWT automatically
-  const { data, error } = await supabase.functions.invoke("admin-create-user", {
-    body: { email, role },
-  });
+  try {
+    const { data, error } = await supabase.functions.invoke("admin-create-user", {
+      body: { email, role },
+    });
 
-  if (error) {
-    console.error("Invite invoke error:", error);
-    el("err").textContent = error.message || "Invite failed.";
+    // Edge Function returned non-2xx => details are inside `error`
+    if (error) {
+      console.error("Edge Function error object:", error);
+
+      const status =
+        error.status ??
+        error.context?.status ??
+        error.context?.response?.status ??
+        "unknown";
+
+      const body =
+        error.context?.body ??
+        error.context?.response ??
+        error.message ??
+        JSON.stringify(error);
+
+      el("err").textContent =
+        `Invite failed (status ${status}): ` +
+        (typeof body === "string" ? body : JSON.stringify(body));
+
+      el("msg").textContent = "";
+      return;
+    }
+
+    console.log("Invite success:", data);
+
+    if (data?.message) {
+      el("msg").textContent = "✅ " + data.message;
+    } else {
+      el("msg").textContent = "✅ Invite sent! (User must check email)";
+    }
+
+    if (el("newEmail")) el("newEmail").value = "";
+    if (el("newRole")) el("newRole").value = "staff";
+
+    await loadUsers();
+  } catch (e) {
+    console.error("Invoke crashed:", e);
+    el("err").textContent =
+      "Invite request crashed (network/CORS). Check DevTools → Console/Network.";
     el("msg").textContent = "";
-    return;
   }
-
-  // Optional: function can return message/details
-  if (data?.message) {
-    el("msg").textContent = "✅ " + data.message;
-  } else {
-    el("msg").textContent = "✅ Invite sent! (User must check email)";
-  }
-
-  if (el("newEmail")) el("newEmail").value = "";
-  if (el("newRole")) el("newRole").value = "staff";
-
-  await loadUsers();
 }
 
 async function main() {
