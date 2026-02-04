@@ -148,14 +148,20 @@ async function inviteUser() {
 
   el("msg").textContent = "Sending invite…";
 
-  const { data: sessionData } = await supabase.auth.getSession();
-  const token = sessionData?.session?.access_token;
+  // ✅ FIX 1: Get token in the most reliable way
+  const { data: sessionWrap, error: sessErr } = await supabase.auth.getSession();
+  const session = sessionWrap?.session;
 
-  if (!token) {
-    el("err").textContent = "Session token missing. Logout/login again.";
+  if (sessErr || !session?.access_token) {
+    el("err").textContent = "No session token. Please logout/login again.";
     el("msg").textContent = "";
     return;
   }
+
+  const token = session.access_token;
+
+  // Optional debug (you can remove later)
+  console.log("ACCESS TOKEN length:", token.length);
 
   try {
     const res = await fetch(FUNCTION_URL, {
@@ -167,6 +173,7 @@ async function inviteUser() {
       body: JSON.stringify({ email, role }),
     });
 
+    // If response isn't JSON, this prevents crashing
     const json = await res.json().catch(() => ({}));
 
     if (!res.ok) {
@@ -204,7 +211,7 @@ async function main() {
   el("search")?.addEventListener("input", renderUsers);
   el("refreshBtn")?.addEventListener("click", loadUsers);
 
-  // ✅ Invite user button handler
+  // Invite user button
   el("createUserBtn")?.addEventListener("click", inviteUser);
 
   el("logoutBtn")?.addEventListener("click", async () => {
