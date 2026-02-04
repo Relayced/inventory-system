@@ -63,8 +63,8 @@ async function loadInventory() {
   }
 
   allRows = (data || []).map((r) => ({
-    id: r.products?.id || r.product_id, // products.id (for edit/delete products)
-    invProductId: r.product_id, // inventory.product_id (for stock/delete inventory)
+    id: r.products?.id || r.product_id,
+    invProductId: r.product_id,
     name: r.products?.name ?? "Unknown",
     price: Number(r.products?.price ?? 0),
     min: Number(r.products?.min_stock ?? 5),
@@ -80,7 +80,6 @@ async function loadInventory() {
 
 /* =========================
    DELETE PRODUCT + STOCK
-   (Admin only)
 ========================= */
 async function deleteProduct(row) {
   if (!row?.invProductId || !row?.id) return;
@@ -90,7 +89,6 @@ async function deleteProduct(row) {
   );
   if (!ok) return;
 
-  // extra safety: require typing DELETE
   const verify = prompt(`Type DELETE to confirm deleting:\n\n${row.name}`, "");
   if (verify !== "DELETE") {
     alert("Cancelled. (You must type DELETE exactly.)");
@@ -99,31 +97,52 @@ async function deleteProduct(row) {
 
   showMsg("Deleting product…", false);
 
-  // 1) delete inventory row first (avoid foreign key problems)
-  const { error: invErr } = await supabase
+  // 1️⃣ delete inventory row and CONFIRM deletion
+  const { data: invDeleted, error: invErr } = await supabase
     .from("inventory")
     .delete()
-    .eq("product_id", row.invProductId);
+    .eq("product_id", row.invProductId)
+    .select("product_id");
 
   if (invErr) {
     showMsg("Delete failed (inventory): " + invErr.message, true);
     return;
   }
 
-  // 2) then delete product row
-  const { error: prodErr } = await supabase
+  if (!invDeleted || invDeleted.length === 0) {
+    showMsg(
+      "Delete blocked: inventory row NOT deleted (RLS policy issue).",
+      true
+    );
+    return;
+  }
+
+  // 2️⃣ delete product row and CONFIRM deletion
+  const { data: prodDeleted, error: prodErr } = await supabase
     .from("products")
     .delete()
-    .eq("id", row.id);
+    .eq("id", row.id)
+    .select("id");
 
   if (prodErr) {
-    // inventory already deleted, so explain clearly
     showMsg(
       "Inventory deleted but product delete failed: " + prodErr.message,
       true
     );
     return;
   }
+
+  if (!prodDeleted || prodDeleted.length === 0) {
+    showMsg(
+      "Delete blocked: product row NOT deleted (RLS policy issue).",
+      true
+    );
+    return;
+  }
+
+  // remove immediately from UI
+  allRows = allRows.filter((x) => String(x.id) !== String(row.id));
+  renderTable(allRows);
 
   showMsg("✅ Deleted!", false);
   await loadInventory();
@@ -141,22 +160,10 @@ function renderTable(rows) {
       const actionCell = isAdmin
         ? `
           <td style="display:flex;gap:8px;flex-wrap:wrap;">
-            <button class="btn" style="padding:8px 10px;border-radius:10px"
-              data-upstock="${r.invProductId}" data-stock="${r.stock}">
-              Stock
-            </button>
-
-            <button class="btn" style="padding:8px 10px;border-radius:10px;background:#0ea5e9"
-              data-edit="${r.id}">
-              Edit
-            </button>
-
-            <button class="btn" style="padding:8px 10px;border-radius:10px;background:#dc2626"
-              data-del-inv="${r.invProductId}" data-del-prod="${r.id}">
-              Delete
-            </button>
-          </td>
-        `
+            <button class="btn" data-upstock="${r.invProductId}" data-stock="${r.stock}">Stock</button>
+            <button class="btn" style="background:#0ea5e9" data-edit="${r.id}">Edit</button>
+            <button class="btn" style="background:#dc2626" data-del="${r.id}">Delete</button>
+          </td>`
         : "";
 
       return `
@@ -167,95 +174,18 @@ function renderTable(rows) {
           <td>${r.min}</td>
           <td>${statusBadge(r.stock, r.min)}</td>
           ${actionCell}
-        </tr>
-      `;
+        </tr>`;
     })
     .join("");
 
-  if (isAdmin) {
-    // Update stock button
-    document.querySelectorAll("button[data-upstock]").forEach((btn) => {
-      btn.addEventListener("click", async () => {
-        const invProductId = btn.getAttribute("data-upstock");
-        const current = Number(btn.getAttribute("data-stock"));
+  if (!isAdmin) return;
 
-        const newStockStr = prompt("Enter new stock:", String(current));
-        if (newStockStr === null) return;
-
-        const newStock = Number(newStockStr);
-        if (!Number.isFinite(newStock) || newStock < 0) {
-          alert("Invalid stock value.");
-          return;
-        }
-
-        const { error } = await supabase
-          .from("inventory")
-          .update({ stock: newStock, updated_at: new Date().toISOString() })
-          .eq("product_id", invProductId);
-
-        if (error) {
-          alert("Update failed: " + error.message);
-          return;
-        }
-
-        await loadInventory();
-      });
+  document.querySelectorAll("button[data-del]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const row = allRows.find((x) => String(x.id) === btn.dataset.del);
+      if (row) deleteProduct(row);
     });
-
-    // Edit product price + min_stock
-    document.querySelectorAll("button[data-edit]").forEach((btn) => {
-      btn.addEventListener("click", async () => {
-        const productId = btn.getAttribute("data-edit");
-        const row = allRows.find((x) => String(x.id) === String(productId));
-        if (!row) return;
-
-        const newPriceStr = prompt("New price (₱):", String(row.price));
-        if (newPriceStr === null) return;
-
-        const newMinStr = prompt("New minimum stock:", String(row.min));
-        if (newMinStr === null) return;
-
-        const newPrice = Number(newPriceStr);
-        const newMin = Number(newMinStr);
-
-        if (!Number.isFinite(newPrice) || newPrice < 0) {
-          alert("Invalid price.");
-          return;
-        }
-        if (!Number.isFinite(newMin) || newMin < 0) {
-          alert("Invalid minimum stock.");
-          return;
-        }
-
-        const { error } = await supabase
-          .from("products")
-          .update({ price: newPrice, min_stock: newMin })
-          .eq("id", productId);
-
-        if (error) {
-          alert("Edit failed: " + error.message);
-          return;
-        }
-
-        await loadInventory();
-      });
-    });
-
-    // ✅ Delete button
-    document.querySelectorAll("button[data-del-inv]").forEach((btn) => {
-      btn.addEventListener("click", async () => {
-        const invId = btn.getAttribute("data-del-inv");
-        const prodId = btn.getAttribute("data-del-prod");
-
-        const row = allRows.find(
-          (x) => String(x.invProductId) === String(invId) && String(x.id) === String(prodId)
-        );
-        if (!row) return;
-
-        await deleteProduct(row);
-      });
-    });
-  }
+  });
 }
 
 /* =========================
@@ -268,35 +198,26 @@ async function addProduct() {
   const stock = Number(el("pStock").value || 0);
 
   if (!name) return showMsg("Product name required.", true);
-  if (!Number.isFinite(price) || price < 0) return showMsg("Invalid price.", true);
-  if (!Number.isFinite(min) || min < 0) return showMsg("Invalid min stock.", true);
-  if (!Number.isFinite(stock) || stock < 0) return showMsg("Invalid initial stock.", true);
+  if (price < 0 || min < 0 || stock < 0)
+    return showMsg("Invalid values.", true);
 
-  showMsg("Adding product...", false);
+  showMsg("Adding product…", false);
 
-  // 1) Insert product
   const { data: prod, error: pErr } = await supabase
     .from("products")
     .insert([{ name, price, min_stock: min }])
     .select("id")
     .single();
 
-  if (pErr) return showMsg("Add product failed: " + pErr.message, true);
+  if (pErr) return showMsg(pErr.message, true);
 
-  // 2) Create inventory row
   const { error: iErr } = await supabase
     .from("inventory")
     .insert([{ product_id: prod.id, stock }]);
 
-  if (iErr) return showMsg("Inventory create failed: " + iErr.message, true);
+  if (iErr) return showMsg(iErr.message, true);
 
   showMsg("✅ Product added!", false);
-
-  el("pName").value = "";
-  el("pPrice").value = "";
-  el("pMin").value = "";
-  el("pStock").value = "";
-
   await loadInventory();
 }
 
@@ -305,21 +226,6 @@ function showMsg(text, isError = false) {
   if (!m) return;
   m.textContent = text;
   m.style.color = isError ? "#dc2626" : "#6b7280";
-}
-
-/* =========================
-   REALTIME
-========================= */
-function setupRealtime() {
-  supabase
-    .channel("inventory-page")
-    .on("postgres_changes", { event: "*", schema: "public", table: "inventory" }, async () => {
-      await loadInventory();
-    })
-    .on("postgres_changes", { event: "*", schema: "public", table: "products" }, async () => {
-      await loadInventory();
-    })
-    .subscribe();
 }
 
 /* =========================
@@ -335,26 +241,20 @@ async function main() {
   el("userRole").textContent = role;
   isAdmin = role === "admin";
 
-  // Hide Admin nav and tools for staff
   if (!isAdmin) {
-    el("navAdmin").style.display = "none";
     el("adminTools").style.display = "none";
-  } else {
-    el("adminTools").classList.remove("hidden");
-    el("thAction").classList.remove("hidden");
+    el("thAction").style.display = "none";
   }
 
-  el("logoutBtn").addEventListener("click", async () => {
+  el("logoutBtn").onclick = async () => {
     await supabase.auth.signOut();
     window.location.href = "./index.html";
-  });
+  };
 
-  el("refreshBtn")?.addEventListener("click", loadInventory);
   el("search").addEventListener("input", () => renderTable(allRows));
   el("addProductBtn")?.addEventListener("click", addProduct);
 
   await loadInventory();
-  setupRealtime();
 }
 
 main();
