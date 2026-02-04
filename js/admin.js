@@ -2,7 +2,7 @@ import { supabase } from "./supabase.js";
 
 const el = (id) => document.getElementById(id);
 
-// ✅ CHANGE THIS if your Edge Function name is different in Supabase
+// ⚠️ Edge function name (not important right now)
 const FUNCTION_NAME = "admin-create-user";
 
 function escapeHtml(str) {
@@ -32,12 +32,20 @@ async function requireAuth() {
   return data.user;
 }
 
+/* =========================
+   🔍 DEBUG VERSION
+   Shows what role the app REALLY reads
+========================= */
 async function getMyRole(userId) {
   const { data, error } = await supabase
     .from("profiles")
-    .select("role")
+    .select("id, role, email")
     .eq("id", userId)
     .maybeSingle();
+
+  console.log("getMyRole → userId:", userId);
+  console.log("getMyRole → data:", data);
+  console.log("getMyRole → error:", error);
 
   if (error) return "staff";
   return data?.role || "staff";
@@ -78,7 +86,6 @@ function renderUsers() {
     })
     .join("");
 
-  // Save role buttons
   document.querySelectorAll("button[data-save]").forEach((btn) => {
     btn.addEventListener("click", async () => {
       el("err").textContent = "";
@@ -105,19 +112,6 @@ function renderUsers() {
       await loadUsers();
     });
   });
-
-  // Copy ID
-  document.querySelectorAll("button[data-copy]").forEach((btn) => {
-    btn.addEventListener("click", async () => {
-      const userId = btn.getAttribute("data-copy");
-      try {
-        await navigator.clipboard.writeText(userId);
-        el("msg").textContent = "Copied user ID ✅";
-      } catch {
-        alert("Copy failed. User ID:\n" + userId);
-      }
-    });
-  });
 }
 
 async function loadUsers() {
@@ -138,114 +132,6 @@ async function loadUsers() {
   renderUsers();
 }
 
-/* =========================
-   OPTIONAL: PING FUNCTION
-   Helps you confirm the function exists & CORS is OK
-========================= */
-async function pingFunction() {
-  try {
-    const { data, error } = await supabase.functions.invoke(FUNCTION_NAME, {
-      body: { ping: true },
-    });
-    console.log("PING data:", data);
-    console.log("PING error:", error);
-  } catch (e) {
-    console.error("PING crashed:", e);
-  }
-}
-
-/* =========================
-   CREATE ACCOUNT (ADMIN)
-========================= */
-async function inviteUser() {
-  el("err").textContent = "";
-  el("msg").textContent = "";
-
-  const email = (el("newEmail")?.value || "").trim().toLowerCase();
-  const password = el("newPassword")?.value || "";
-  const role = el("newRole")?.value || "staff";
-
-  if (!email || !email.includes("@")) {
-    el("err").textContent = "Please enter a valid email.";
-    return;
-  }
-
-  if (password.length < 6) {
-    el("err").textContent = "Password must be at least 6 characters.";
-    return;
-  }
-
-  el("msg").textContent = "Checking session…";
-
-  const { data: sessionWrap, error: sessionErr } = await supabase.auth.getSession();
-  const token = sessionWrap?.session?.access_token;
-
-  console.log("Session error:", sessionErr);
-  console.log("Access token exists?", !!token);
-  console.log("Access token length:", token ? token.length : 0);
-
-  if (!token) {
-    el("err").textContent = "No login session found. Logout then login again.";
-    el("msg").textContent = "";
-    return;
-  }
-
-  el("msg").textContent = "Creating account…";
-
-  try {
-    const { data, error } = await supabase.functions.invoke(FUNCTION_NAME, {
-      body: { email, password, role },
-    });
-
-    if (error) {
-      console.error("Edge Function error object:", error);
-
-      // If function is missing/not deployed, SDK often shows "Failed to send request"
-      if ((error.message || "").toLowerCase().includes("failed to send")) {
-        el("err").textContent =
-          `Create failed: Cannot reach Edge Function "${FUNCTION_NAME}". ` +
-          `Check: (1) function name matches in Supabase, (2) function is deployed, (3) CORS/OPTIONS is handled.`;
-        el("msg").textContent = "";
-        return;
-      }
-
-      const status =
-        error.status ??
-        error.context?.status ??
-        error.context?.response?.status ??
-        "unknown";
-
-      const body =
-        error.context?.body ??
-        error.context?.response ??
-        error.message ??
-        JSON.stringify(error);
-
-      el("err").textContent =
-        `Create failed (status ${status}): ` +
-        (typeof body === "string" ? body : JSON.stringify(body));
-
-      el("msg").textContent = "";
-      return;
-    }
-
-    console.log("Create success:", data);
-
-    el("msg").textContent = data?.message ? "✅ " + data.message : "✅ Account created!";
-
-    if (el("newEmail")) el("newEmail").value = "";
-    if (el("newPassword")) el("newPassword").value = "";
-    if (el("newRole")) el("newRole").value = "staff";
-
-    await loadUsers();
-  } catch (e) {
-    console.error("Invoke crashed:", e);
-    el("err").textContent =
-      `Create request crashed (network/CORS). Make sure Edge Function "${FUNCTION_NAME}" exists and is deployed.`;
-    el("msg").textContent = "";
-  }
-}
-
 async function main() {
   const user = await requireAuth();
   if (!user) return;
@@ -262,7 +148,6 @@ async function main() {
 
   el("search")?.addEventListener("input", renderUsers);
   el("refreshBtn")?.addEventListener("click", loadUsers);
-  el("createUserBtn")?.addEventListener("click", inviteUser);
 
   el("logoutBtn")?.addEventListener("click", async () => {
     await supabase.auth.signOut();
@@ -270,9 +155,6 @@ async function main() {
   });
 
   await loadUsers();
-
-  // Optional: uncomment for debugging
-  // await pingFunction();
 }
 
 main();
