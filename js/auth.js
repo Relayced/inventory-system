@@ -1,39 +1,83 @@
 import { supabase } from "./supabase.js";
 
-/* ---------- LOGIN ---------- */
-const loginForm = document.getElementById("loginForm");
-const emailEl = document.getElementById("email");
-const passwordEl = document.getElementById("password");
-const errorEl = document.getElementById("error");
+/*
+  This file handles login for index.html on GitHub Pages.
+  Requirements in index.html:
+    - form id="loginForm"
+    - input id="email"
+    - input id="password"
+    - div id="error"
+*/
 
-if (loginForm) {
-  loginForm.addEventListener("submit", async (e) => {
-    e.preventDefault();
+const form = document.getElementById("loginForm");
+const errorBox = document.getElementById("error");
 
-    const email = emailEl.value.trim();
-    const password = passwordEl.value;
+function setError(message) {
+  errorBox.textContent = message || "";
+}
 
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
+form.addEventListener("submit", async (e) => {
+  e.preventDefault();
+  setError("");
+
+  const emailInput = document.getElementById("email");
+  const passwordInput = document.getElementById("password");
+
+  const email = (emailInput.value || "").trim();
+  const password = passwordInput.value || "";
+
+  // Basic validation
+  if (!email) {
+    setError("Please enter your email.");
+    emailInput.focus();
+    return;
+  }
+
+  if (!password) {
+    setError("Please enter your password.");
+    passwordInput.focus();
+    return;
+  }
+
+  // Show loading state
+  const submitBtn = form.querySelector('button[type="submit"]');
+  const oldText = submitBtn.textContent;
+  submitBtn.textContent = "Signing in...";
+  submitBtn.disabled = true;
+
+  try {
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    });
 
     if (error) {
-      if (errorEl) errorEl.textContent = error.message;
+      console.error("Login error:", error);
+      setError(error.message);
       return;
     }
 
-    window.location.href = "dashboard.html";
-  });
-}
+    // Confirm session exists
+    const { data: sessionData, error: sessionErr } = await supabase.auth.getSession();
+    if (sessionErr) {
+      console.error("Session error:", sessionErr);
+      setError(sessionErr.message);
+      return;
+    }
 
-/* ---------- PROTECT DASHBOARD ---------- */
-const isDashboardPage =
-  window.location.pathname.endsWith("/dashboard.html") ||
-  window.location.pathname.endsWith("dashboard.html");
+    if (!sessionData.session) {
+      setError("Login succeeded but no session was found. Please try again.");
+      return;
+    }
 
-if (isDashboardPage) {
-  const { data, error } = await supabase.auth.getUser();
-
-  // if request fails or no user, send back to login
-  if (error || !data?.user) {
-    window.location.href = "index.html";
+    // Success: redirect
+    // Use relative path for GitHub Pages
+    window.location.href = "./dashboard.html";
+  } catch (err) {
+    console.error("Unexpected error:", err);
+    setError("Something went wrong. Check console for details.");
+  } finally {
+    submitBtn.textContent = oldText;
+    submitBtn.disabled = false;
   }
-}
+});
