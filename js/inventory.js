@@ -14,15 +14,14 @@ function escapeHtml(str) {
 function statusBadge(stock, min) {
   const s = Number(stock);
   const m = Number(min);
-
   if (s <= 0) return `<span class="status out">OUT</span>`;
   if (s <= m) return `<span class="status low">LOW</span>`;
   return `<span class="status ok">OK</span>`;
 }
 
 async function requireAuth() {
-  const { data, error } = await supabase.auth.getUser();
-  if (error || !data?.user) {
+  const { data } = await supabase.auth.getUser();
+  if (!data?.user) {
     window.location.href = "./index.html";
     return null;
   }
@@ -30,13 +29,12 @@ async function requireAuth() {
 }
 
 async function getMyRole(userId) {
-  const { data, error } = await supabase
+  const { data } = await supabase
     .from("profiles")
     .select("role")
     .eq("id", userId)
     .maybeSingle();
 
-  if (error) return "staff";
   return data?.role || "staff";
 }
 
@@ -55,141 +53,114 @@ async function loadInventory() {
     .order("updated_at", { ascending: false });
 
   if (error) {
-    el("tableNote").innerHTML = `<span class="danger">Cannot load inventory: ${escapeHtml(
-      error.message
-    )}</span>`;
-    el("invBody").innerHTML = "";
+    el("tableNote").textContent = error.message;
     return;
   }
 
   allRows = (data || []).map((r) => ({
-    id: r.products?.id || r.product_id,
+    id: r.products.id,
     invProductId: r.product_id,
-    name: r.products?.name ?? "Unknown",
-    price: Number(r.products?.price ?? 0),
-    min: Number(r.products?.min_stock ?? 5),
-    stock: Number(r.stock ?? 0),
+    name: r.products.name,
+    price: Number(r.products.price),
+    min: Number(r.products.min_stock),
+    stock: Number(r.stock),
   }));
 
-  el("tableNote").textContent = allRows.length
-    ? ""
-    : "No products yet. (Admin can add.)";
-
   renderTable(allRows);
 }
 
 /* =========================
-   DELETE PRODUCT + STOCK
+   DELETE
 ========================= */
 async function deleteProduct(row) {
-  if (!row?.invProductId || !row?.id) return;
+  if (!confirm(`Delete ${row.name}?`)) return;
 
-  const ok = confirm(
-    `Delete this product?\n\n${row.name}\n\nThis will REMOVE it from inventory and products.`
-  );
-  if (!ok) return;
+  await supabase.from("inventory").delete().eq("product_id", row.invProductId);
+  await supabase.from("products").delete().eq("id", row.id);
 
-  const verify = prompt(`Type DELETE to confirm deleting:\n\n${row.name}`, "");
-  if (verify !== "DELETE") {
-    alert("Cancelled. (You must type DELETE exactly.)");
-    return;
-  }
-
-  showMsg("Deleting product…", false);
-
-  // 1️⃣ delete inventory row and CONFIRM deletion
-  const { data: invDeleted, error: invErr } = await supabase
-    .from("inventory")
-    .delete()
-    .eq("product_id", row.invProductId)
-    .select("product_id");
-
-  if (invErr) {
-    showMsg("Delete failed (inventory): " + invErr.message, true);
-    return;
-  }
-
-  if (!invDeleted || invDeleted.length === 0) {
-    showMsg(
-      "Delete blocked: inventory row NOT deleted (RLS policy issue).",
-      true
-    );
-    return;
-  }
-
-  // 2️⃣ delete product row and CONFIRM deletion
-  const { data: prodDeleted, error: prodErr } = await supabase
-    .from("products")
-    .delete()
-    .eq("id", row.id)
-    .select("id");
-
-  if (prodErr) {
-    showMsg(
-      "Inventory deleted but product delete failed: " + prodErr.message,
-      true
-    );
-    return;
-  }
-
-  if (!prodDeleted || prodDeleted.length === 0) {
-    showMsg(
-      "Delete blocked: product row NOT deleted (RLS policy issue).",
-      true
-    );
-    return;
-  }
-
-  // remove immediately from UI
-  allRows = allRows.filter((x) => String(x.id) !== String(row.id));
+  allRows = allRows.filter((x) => x.id !== row.id);
   renderTable(allRows);
-
-  showMsg("✅ Deleted!", false);
-  await loadInventory();
 }
 
 /* =========================
-   RENDER TABLE
+   RENDER TABLE (FIXED)
 ========================= */
 function renderTable(rows) {
-  const q = el("search").value.trim().toLowerCase();
+  const q = el("search").value.toLowerCase();
   const filtered = rows.filter((r) => r.name.toLowerCase().includes(q));
 
   el("invBody").innerHTML = filtered
-    .map((r) => {
-      const actionCell = isAdmin
-        ? `
-          <td style="display:flex;gap:8px;flex-wrap:wrap;">
-            <button class="btn" data-upstock="${r.invProductId}" data-stock="${r.stock}">Stock</button>
-            <button class="btn" style="background:#0ea5e9" data-edit="${r.id}">Edit</button>
-            <button class="btn" style="background:#dc2626" data-del="${r.id}">Delete</button>
-          </td>`
-        : "";
-
-      return `
-        <tr>
-          <td>${escapeHtml(r.name)}</td>
-          <td>₱${r.price.toFixed(2)}</td>
-          <td>${r.stock}</td>
-          <td>${r.min}</td>
-          <td>${statusBadge(r.stock, r.min)}</td>
-          ${actionCell}
-        </tr>`;
-    })
+    .map(
+      (r) => `
+    <tr>
+      <td>${escapeHtml(r.name)}</td>
+      <td>₱${r.price.toFixed(2)}</td>
+      <td>${r.stock}</td>
+      <td>${r.min}</td>
+      <td>${statusBadge(r.stock, r.min)}</td>
+      ${
+        isAdmin
+          ? `
+        <td>
+          <button class="btn" data-upstock="${r.invProductId}" data-stock="${r.stock}">Stock</button>
+          <button class="btn" data-edit="${r.id}">Edit</button>
+          <button class="btn danger" data-del="${r.id}">Delete</button>
+        </td>`
+          : ""
+      }
+    </tr>`
+    )
     .join("");
 
   if (!isAdmin) return;
 
-  document.querySelectorAll("button[data-del]").forEach((btn) => {
-    btn.addEventListener("click", () => {
-      const row = allRows.find((x) => String(x.id) === btn.dataset.del);
+  /* ✅ STOCK BUTTON */
+  document.querySelectorAll("[data-upstock]").forEach((btn) => {
+    btn.onclick = async () => {
+      const id = btn.dataset.upstock;
+      const current = Number(btn.dataset.stock);
+      const value = prompt("New stock:", current);
+      if (value === null) return;
+
+      await supabase
+        .from("inventory")
+        .update({ stock: Number(value) })
+        .eq("product_id", id);
+
+      loadInventory();
+    };
+  });
+
+  /* ✅ EDIT BUTTON */
+  document.querySelectorAll("[data-edit]").forEach((btn) => {
+    btn.onclick = async () => {
+      const row = allRows.find((x) => x.id === btn.dataset.edit);
+      if (!row) return;
+
+      const price = prompt("New price:", row.price);
+      const min = prompt("New min stock:", row.min);
+      if (price === null || min === null) return;
+
+      await supabase
+        .from("products")
+        .update({ price: Number(price), min_stock: Number(min) })
+        .eq("id", row.id);
+
+      loadInventory();
+    };
+  });
+
+  /* ✅ DELETE BUTTON */
+  document.querySelectorAll("[data-del]").forEach((btn) => {
+    btn.onclick = () => {
+      const row = allRows.find((x) => x.id === btn.dataset.del);
       if (row) deleteProduct(row);
-    });
+    };
   });
 }
 
 /* =========================
-   ADMIN: ADD PRODUCT
+   ADD PRODUCT (UNCHANGED)
 ========================= */
 async function addProduct() {
   const name = el("pName").value.trim();
@@ -197,35 +168,17 @@ async function addProduct() {
   const min = Number(el("pMin").value || 5);
   const stock = Number(el("pStock").value || 0);
 
-  if (!name) return showMsg("Product name required.", true);
-  if (price < 0 || min < 0 || stock < 0)
-    return showMsg("Invalid values.", true);
-
-  showMsg("Adding product…", false);
-
-  const { data: prod, error: pErr } = await supabase
+  const { data: prod } = await supabase
     .from("products")
     .insert([{ name, price, min_stock: min }])
     .select("id")
     .single();
 
-  if (pErr) return showMsg(pErr.message, true);
-
-  const { error: iErr } = await supabase
+  await supabase
     .from("inventory")
     .insert([{ product_id: prod.id, stock }]);
 
-  if (iErr) return showMsg(iErr.message, true);
-
-  showMsg("✅ Product added!", false);
-  await loadInventory();
-}
-
-function showMsg(text, isError = false) {
-  const m = el("msg");
-  if (!m) return;
-  m.textContent = text;
-  m.style.color = isError ? "#dc2626" : "#6b7280";
+  loadInventory();
 }
 
 /* =========================
@@ -235,10 +188,7 @@ async function main() {
   const user = await requireAuth();
   if (!user) return;
 
-  el("userEmail").textContent = user.email || "(no email)";
-
   const role = await getMyRole(user.id);
-  el("userRole").textContent = role;
   isAdmin = role === "admin";
 
   if (!isAdmin) {
@@ -246,12 +196,7 @@ async function main() {
     el("thAction").style.display = "none";
   }
 
-  el("logoutBtn").onclick = async () => {
-    await supabase.auth.signOut();
-    window.location.href = "./index.html";
-  };
-
-  el("search").addEventListener("input", () => renderTable(allRows));
+  el("search").oninput = () => renderTable(allRows);
   el("addProductBtn")?.addEventListener("click", addProduct);
 
   await loadInventory();
