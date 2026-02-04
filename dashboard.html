@@ -11,8 +11,7 @@
     .app{display:flex;min-height:100vh}
 
     .sidebar{
-      width:250px;background:#111827;color:#fff;
-      display:flex;flex-direction:column;padding:20px
+      width:250px;background:#111827;color:#fff;display:flex;flex-direction:column;padding:20px
     }
     .brand{display:flex;gap:12px;align-items:center;margin-bottom:22px}
     .logo{
@@ -24,79 +23,59 @@
 
     .nav{flex:1;margin-top:6px}
     .nav a{
-      display:block;text-decoration:none;color:#cbd5e1;
-      padding:12px 14px;border-radius:10px;margin-bottom:6px
+      display:block;text-decoration:none;color:#cbd5e1;padding:12px 14px;border-radius:10px;margin-bottom:6px
     }
     .nav a:hover,.nav a.active{background:#1f2937;color:#fff}
 
     .btn{
-      border:0;border-radius:10px;padding:10px 14px;cursor:pointer;
-      background:#2563eb;color:#fff;font-weight:600
+      border:0;border-radius:10px;padding:10px 14px;cursor:pointer;background:#2563eb;color:#fff;font-weight:600
     }
-    .btn-ghost{
-      background:transparent;border:1px solid #374151;color:#cbd5e1;margin-top:10px
-    }
-    .sidebar-footer{
-      margin-top:14px;font-size:12px;opacity:.85;line-height:1.4
-    }
+    .btn-ghost{background:transparent;border:1px solid #374151;color:#cbd5e1;margin-top:10px}
+    .sidebar-footer{margin-top:14px;font-size:12px;opacity:.85;line-height:1.4}
 
     .main{flex:1;padding:24px}
     .topbar{
-      display:flex;justify-content:space-between;align-items:center;margin-bottom:18px
+      display:flex;justify-content:space-between;align-items:flex-end;margin-bottom:18px;gap:12px;flex-wrap:wrap
     }
     .page-title{font-size:24px;font-weight:900}
     .page-sub{font-size:13px;color:#6b7280;margin-top:4px}
-    .top-actions{display:flex;gap:10px}
 
-    .grid{display:grid;gap:16px}
-    .stats{
-      grid-template-columns:repeat(auto-fit,minmax(220px,1fr));
-      margin-bottom:22px
+    .grid{
+      display:grid;grid-template-columns:repeat(12,1fr);gap:14px
     }
-    .content{grid-template-columns:repeat(12,1fr)}
-    .span-7{grid-column:span 7}
-    .span-5{grid-column:span 5}
-
     .card{
-      background:#fff;border-radius:14px;padding:18px;
-      box-shadow:0 10px 20px rgba(0,0,0,.06)
+      background:#fff;border-radius:14px;padding:18px;box-shadow:0 10px 20px rgba(0,0,0,.06)
     }
-    .card-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}
-    .label{font-size:13px;color:#6b7280;margin-bottom:6px}
-    .value{font-size:26px;font-weight:900}
-    .sub{font-size:12px;color:#9ca3af;margin-top:6px}
-    .danger{color:#dc2626}
-
-    .pill{
-      background:#e0f2fe;color:#0369a1;
-      padding:4px 10px;font-size:11px;border-radius:999px
-    }
-
-    .list{display:flex;flex-direction:column;gap:10px;margin-top:10px}
-    .list-item{
-      display:flex;justify-content:space-between;align-items:center;
-      border:1px solid #e5e7eb;border-radius:12px;padding:12px
-    }
-    .li-title{font-weight:700}
-    .li-sub{font-size:12px;color:#6b7280;margin-top:2px}
-    .badge{
-      font-size:12px;font-weight:800;border-radius:999px;
-      padding:6px 10px;background:#fee2e2;color:#991b1b
-    }
-    .badge.ok{background:#dcfce7;color:#166534}
     .muted{color:#6b7280;font-size:14px;line-height:1.4}
-    .divider{height:1px;background:#e5e7eb;margin:12px 0}
+    .kpi-title{font-size:12px;color:#6b7280;font-weight:700;text-transform:uppercase;letter-spacing:.06em}
+    .kpi-value{font-size:26px;font-weight:900;margin-top:8px}
+    .kpi-sub{margin-top:6px;font-size:12px;color:#6b7280}
 
+    .divider{height:1px;background:#eef2f7;margin:14px 0}
+
+    .list-item{
+      display:flex;align-items:center;justify-content:space-between;
+      padding:10px 12px;border:1px solid #eef2f7;border-radius:12px;margin-top:10px
+    }
+    .li-title{font-weight:800}
+    .li-sub{font-size:12px;color:#6b7280;margin-top:4px}
+    .badge{
+      font-size:12px;font-weight:900;padding:6px 10px;border-radius:999px;background:#fee2e2;color:#991b1b
+    }
+
+    @media (max-width: 1100px){
+      .grid{grid-template-columns:repeat(6,1fr)}
+    }
     @media (max-width: 900px){
       .sidebar{width:200px}
       .main{padding:16px}
-      .content{grid-template-columns:1fr}
-      .span-7,.span-5{grid-column:span 1}
+    }
+    @media (max-width: 720px){
+      .grid{grid-template-columns:repeat(2,1fr)}
     }
   </style>
 
   <script type="module" src="./js/dashboard.js?v=999"></script>
-
 </head>
 
 <body>
@@ -115,16 +94,15 @@
         <a href="./inventory.html">Inventory</a>
         <a href="./sales.html">Sales</a>
         <a href="./reports.html">Reports</a>
-        <a href="./admin.html" id="navAdmin">Admin</a>
-
+        <a id="adminLink" href="./admin.html" style="display:none;">Admin</a>
       </nav>
 
       <button class="btn btn-ghost" id="logoutBtn">Logout</button>
 
       <div class="sidebar-footer">
         Signed in as:<br>
-        <strong id="userEmail">Loading…</strong><br>
-        Role: <strong id="userRole">Loading…</strong>
+        <strong id="who">Loading…</strong><br>
+        Role: <strong id="role">Loading…</strong>
       </div>
     </aside>
 
@@ -132,72 +110,54 @@
       <header class="topbar">
         <div>
           <div class="page-title">Dashboard</div>
-          <div class="page-sub">Sales & inventory overview</div>
-        </div>
-        <div class="top-actions">
-          <button class="btn" id="refreshBtn">Refresh</button>
+          <div class="page-sub">Overview of inventory and sales</div>
         </div>
       </header>
 
-      <section class="grid stats">
-        <div class="card">
-          <div class="label">Today Sales</div>
-          <div class="value" id="todaySales">₱0.00</div>
-          <div class="sub" id="todayOrders">0 orders</div>
+      <section class="grid">
+        <!-- KPIs -->
+        <div class="card" style="grid-column: span 3;">
+          <div class="kpi-title">Products</div>
+          <div class="kpi-value" id="productCount">0</div>
+          <div class="kpi-sub">Total items listed</div>
         </div>
 
-        <div class="card">
-          <div class="label">Monthly Sales</div>
-          <div class="value" id="monthSales">₱0.00</div>
-          <div class="sub" id="monthOrders">0 orders</div>
+        <div class="card" style="grid-column: span 3;">
+          <div class="kpi-title">Low Stock</div>
+          <div class="kpi-value" id="lowStockCount">0</div>
+          <div class="kpi-sub">Need restocking</div>
         </div>
 
-        <div class="card">
-          <div class="label">Products</div>
-          <div class="value" id="productCount">0</div>
-          <div class="sub">Active items</div>
+        <div class="card" style="grid-column: span 3;">
+          <div class="kpi-title">Today Sales</div>
+          <div class="kpi-value" id="todaySales">₱0.00</div>
+          <div class="kpi-sub" id="todayOrders">0 orders</div>
         </div>
 
-        <div class="card">
-          <div class="label">Low Stock</div>
-          <div class="value danger" id="lowStockCount">0</div>
-          <div class="sub">Needs restock</div>
+        <div class="card" style="grid-column: span 3;">
+          <div class="kpi-title">This Month</div>
+          <div class="kpi-value" id="monthSales">₱0.00</div>
+          <div class="kpi-sub" id="monthOrders">0 orders</div>
         </div>
-      </section>
 
-      <section class="grid content">
-        <div class="card span-7">
-          <div class="card-head">
-            <h3>Low Stock Alerts</h3>
-            <span class="pill">Connected</span>
+        <!-- Low stock list -->
+        <div class="card" style="grid-column: span 6;">
+          <div style="display:flex;justify-content:space-between;align-items:end;gap:10px;flex-wrap:wrap;">
+            <div>
+              <div class="kpi-title">Low stock items</div>
+              <div class="muted" id="lowStockNote" style="margin-top:6px;">Loading…</div>
+            </div>
           </div>
 
-          <div class="muted" id="lowStockNote" style="margin-top:6px;">
-            Loading alerts…
-          </div>
-
-          <div class="list" id="lowStockList"></div>
+          <div id="lowStockList"></div>
         </div>
 
-        <div class="card span-5">
-          <div class="card-head">
-            <h3>Quick Info</h3>
-            <span class="pill">Tip</span>
-          </div>
-
-          <p class="muted">
-            If your sales totals stay at 0, that’s normal until we build the Sales page.
-          </p>
-
+        <!-- Tips -->
+        <div class="card" style="grid-column: span 6;">
+          <div class="kpi-title">Tip</div>
           <div class="divider"></div>
-
           <p class="muted">
-            Next pages we’ll build:
-            <ul style="margin:10px 0 0 18px">
-              <li>Sales Transaction</li>
-              <li>Reports (fast/slow items)</li>
-              <li>Forecasting</li>
-            </ul>
+            Tip: If totals stay at 0, make sure you have sales records and your account can read the <b>sales</b> table (RLS).
           </p>
         </div>
       </section>
@@ -205,7 +165,3 @@
   </div>
 </body>
 </html>
-
-
-
-
