@@ -7,12 +7,26 @@ let products = [];
 let cart = []; // {product_id, name, price, stock, qty}
 
 async function requireAuth() {
-  const { data } = await supabase.auth.getUser();
-  if (!data?.user) {
+  const { data, error } = await supabase.auth.getUser();
+  if (error || !data?.user) {
     window.location.href = "./index.html";
     return null;
   }
   return data.user;
+}
+
+async function getMyRole(userId) {
+  const { data, error } = await supabase
+    .from("profiles")
+    .select("role")
+    .eq("id", userId)
+    .maybeSingle();
+
+  if (error) {
+    console.error("Role read failed:", error);
+    return "staff";
+  }
+  return data?.role || "staff";
 }
 
 function renderProducts() {
@@ -21,7 +35,9 @@ function renderProducts() {
 
   el("productNote").textContent = filtered.length ? "" : "No matching products.";
 
-  el("productBody").innerHTML = filtered.map((p) => `
+  el("productBody").innerHTML = filtered
+    .map(
+      (p) => `
     <tr>
       <td>${escapeHtml(p.name)}</td>
       <td>${peso(p.price)}</td>
@@ -32,7 +48,9 @@ function renderProducts() {
         </button>
       </td>
     </tr>
-  `).join("");
+  `
+    )
+    .join("");
 
   document.querySelectorAll("button[data-add]").forEach((btn) => {
     btn.addEventListener("click", () => addToCart(btn.getAttribute("data-add")));
@@ -45,7 +63,9 @@ function renderCart() {
   const total = cart.reduce((a, x) => a + x.price * x.qty, 0);
   el("total").textContent = peso(total);
 
-  el("cartBody").innerHTML = cart.map((x) => `
+  el("cartBody").innerHTML = cart
+    .map(
+      (x) => `
     <tr>
       <td>${escapeHtml(x.name)}</td>
       <td>
@@ -57,17 +77,17 @@ function renderCart() {
         <button class="btn rowbtn2" data-remove="${x.product_id}">X</button>
       </td>
     </tr>
-  `).join("");
+  `
+    )
+    .join("");
 
   document.querySelectorAll("input[data-qty]").forEach((inp) => {
     inp.addEventListener("input", () => {
       const pid = inp.getAttribute("data-qty");
-      const v = Number(inp.value);
       const item = cart.find((c) => c.product_id === pid);
       if (!item) return;
 
-      // prevent exceeding stock
-      if (!Number.isFinite(v) || v < 1) inp.value = "1";
+      if (!Number.isFinite(Number(inp.value)) || Number(inp.value) < 1) inp.value = "1";
       const newQty = Math.max(1, Number(inp.value));
 
       if (newQty > item.stock) {
@@ -118,12 +138,14 @@ async function loadProducts() {
     return;
   }
 
-  products = (data || []).map((r) => ({
-    id: r.products?.id,
-    name: r.products?.name ?? "Unknown",
-    price: Number(r.products?.price ?? 0),
-    stock: Number(r.stock ?? 0),
-  })).filter((p) => p.id);
+  products = (data || [])
+    .map((r) => ({
+      id: r.products?.id,
+      name: r.products?.name ?? "Unknown",
+      price: Number(r.products?.price ?? 0),
+      stock: Number(r.stock ?? 0),
+    }))
+    .filter((p) => p.id);
 
   renderProducts();
 }
@@ -137,7 +159,6 @@ async function checkout() {
     return;
   }
 
-  // build payload for RPC
   const payload = cart.map((x) => ({ product_id: x.product_id, qty: x.qty }));
 
   el("msg").textContent = "Processing sale…";
@@ -150,15 +171,14 @@ async function checkout() {
     return;
   }
 
-  // success
   cart = [];
   renderCart();
-  await loadProducts(); // refresh stock display
+  await loadProducts();
   el("msg").textContent = "✅ Sale saved! Sale ID: " + data;
 }
 
 function escapeHtml(str) {
-  return String(str)
+  return String(str ?? "")
     .replaceAll("&", "&amp;")
     .replaceAll("<", "&lt;")
     .replaceAll(">", "&gt;")
@@ -172,7 +192,17 @@ async function main() {
 
   el("userEmail").textContent = user.email || "(no email)";
 
+  // ✅ role + hide admin tab for staff
+  const role = await getMyRole(user.id);
+
+  const userRoleEl = document.getElementById("userRole");
+  if (userRoleEl) userRoleEl.textContent = role;
+
+  const navAdmin = document.getElementById("navAdmin");
+  if (navAdmin) navAdmin.style.display = role === "admin" ? "block" : "none";
+
   el("search").addEventListener("input", renderProducts);
+
   el("clearBtn").addEventListener("click", () => {
     cart = [];
     renderCart();
