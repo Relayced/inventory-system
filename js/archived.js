@@ -99,9 +99,40 @@ async function confirmDelete() {
     .eq("id", productId);
 
   if (error) {
-    setErr("Delete failed: " + error.message);
-    setMsg("");
-    return;
+    const code = String(error.code || "").toUpperCase();
+    const message = String(error.message || "").toLowerCase();
+    const isFkBlocked =
+      code === "23503" ||
+      message.includes("foreign key") ||
+      message.includes("violates foreign key constraint");
+
+    if (isFkBlocked) {
+      const { error: saleItemsErr } = await supabase
+        .from("sale_items")
+        .delete()
+        .eq("product_id", productId);
+
+      if (saleItemsErr) {
+        setErr("Delete blocked: cannot clear related sale_items. " + saleItemsErr.message);
+        setMsg("");
+        return;
+      }
+
+      const { error: retryErr } = await supabase
+        .from("products")
+        .delete()
+        .eq("id", productId);
+
+      if (retryErr) {
+        setErr("Delete failed after clearing sale_items: " + retryErr.message);
+        setMsg("");
+        return;
+      }
+    } else {
+      setErr("Delete failed: " + error.message);
+      setMsg("");
+      return;
+    }
   }
 
   closeDeleteModal();
