@@ -130,6 +130,33 @@ function renderUsers() {
       }
     });
   });
+
+  // Delete buttons
+document.querySelectorAll("button[data-delete]").forEach((btn) => {
+  btn.addEventListener("click", async () => {
+    setErr("");
+    setMsg("");
+
+    const userId = btn.getAttribute("data-delete");
+
+    if (!confirm("Are you sure you want to delete this user?")) return;
+
+    setMsg("Deleting user…");
+
+    const { error } = await supabase.rpc("admin_delete_user", {
+      p_user_id: userId,
+    });
+
+    if (error) {
+      setErr("Delete failed: " + error.message);
+      setMsg("");
+      return;
+    }
+
+    setMsg("✅ User deleted!");
+    await loadUsers();
+  });
+});
 }
 
 async function loadUsers() {
