@@ -56,6 +56,7 @@ async function getMyRole(userId) {
 
 let allUsers = [];
 let editingRoleUserId = null;
+let deletingUserId = null;
 
 function closeAllActionMenus() {
   document.querySelectorAll(".action-dropdown.show").forEach((menu) => {
@@ -93,6 +94,34 @@ function closeRoleModal() {
   }
 }
 
+function openDeleteModal(userId) {
+  const user = allUsers.find((u) => u.id === userId);
+  if (!user) return;
+
+  deletingUserId = userId;
+
+  const emailText = user.email
+    ? `Are you sure you want to delete ${user.email}?`
+    : "Are you sure you want to delete this user?";
+
+  const emailEl = el("deleteModalEmail");
+  const backdropEl = el("deleteModalBackdrop");
+  if (emailEl) emailEl.textContent = emailText;
+  if (backdropEl) {
+    backdropEl.classList.add("show");
+    backdropEl.setAttribute("aria-hidden", "false");
+  }
+}
+
+function closeDeleteModal() {
+  deletingUserId = null;
+  const backdropEl = el("deleteModalBackdrop");
+  if (backdropEl) {
+    backdropEl.classList.remove("show");
+    backdropEl.setAttribute("aria-hidden", "true");
+  }
+}
+
 async function saveRoleFromModal() {
   if (!editingRoleUserId) return;
 
@@ -115,6 +144,27 @@ async function saveRoleFromModal() {
 
   closeRoleModal();
   setMsg("✅ Updated role!");
+  await loadUsers();
+}
+
+async function confirmDeleteUser() {
+  if (!deletingUserId) return;
+
+  setErr("");
+  setMsg("Deleting user…");
+
+  const { error } = await supabase.rpc("admin_delete_user", {
+    p_user_id: deletingUserId,
+  });
+
+  if (error) {
+    setErr("Delete failed: " + error.message);
+    setMsg("");
+    return;
+  }
+
+  closeDeleteModal();
+  setMsg("✅ User deleted!");
   await loadUsers();
 }
 
@@ -177,35 +227,16 @@ function renderUsers() {
 
   // Delete action buttons
   document.querySelectorAll("button[data-delete-action]").forEach((btn) => {
-  btn.addEventListener("click", async () => {
-    closeAllActionMenus();
-    setErr("");
-    setMsg("");
-
-    const userId = btn.getAttribute("data-delete-action");
-
-    console.log("Attempting to delete user with ID:", userId);
-
-    if (!confirm("Are you sure you want to delete this user?")) return;
-
-    setMsg("Deleting user…");
-
-   const { error } = await supabase.rpc("admin_delete_user", {
-  p_user_id: userId,
-});
-
-    console.log("Delete user RPC completed. Error:", error);
-
-    if (error) {
-      setErr("Delete failed: " + error.message);
+    btn.addEventListener("click", () => {
+      closeAllActionMenus();
+      setErr("");
       setMsg("");
-      return;
-    }
 
-    setMsg("✅ User deleted!");
-    loadUsers();
+      const userId = btn.getAttribute("data-delete-action");
+      if (!userId) return;
+      openDeleteModal(userId);
+    });
   });
-});
 
   document.addEventListener("click", closeAllActionMenus, { once: true });
 }
@@ -286,10 +317,10 @@ async function createUser() {
     return;
   }
 
-  // Insert profile role (ONLY id + role — avoids missing columns like "email")
+  // Upsert profile role (handles existing profile rows safely)
   const { error: profErr } = await supabase
     .from("profiles")
-    .insert([{ id: newUserId, role }]);
+    .upsert([{ id: newUserId, role }], { onConflict: "id" });
 
   // Restore admin session (important)
   if (adminSession?.access_token && adminSession?.refresh_token) {
@@ -333,13 +364,22 @@ async function main() {
   el("refreshBtn")?.addEventListener("click", loadUsers);
   el("roleModalCancel")?.addEventListener("click", closeRoleModal);
   el("roleModalSave")?.addEventListener("click", saveRoleFromModal);
+  el("deleteModalCancel")?.addEventListener("click", closeDeleteModal);
+  el("deleteModalConfirm")?.addEventListener("click", confirmDeleteUser);
 
   el("roleModalBackdrop")?.addEventListener("click", (event) => {
     if (event.target === event.currentTarget) closeRoleModal();
   });
 
+  el("deleteModalBackdrop")?.addEventListener("click", (event) => {
+    if (event.target === event.currentTarget) closeDeleteModal();
+  });
+
   document.addEventListener("keydown", (event) => {
-    if (event.key === "Escape") closeRoleModal();
+    if (event.key === "Escape") {
+      closeRoleModal();
+      closeDeleteModal();
+    }
   });
 
   // ✅ THIS is the missing wiring:

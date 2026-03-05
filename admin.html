@@ -39,6 +39,17 @@
 
     input,select{padding:10px 12px;border:1px solid #e5e7eb;border-radius:10px;outline:none}
     input:focus,select:focus{border-color:#93c5fd}
+    #newRole,
+    #roleModalSelect{
+      appearance:none;
+      -webkit-appearance:none;
+      -moz-appearance:none;
+      padding-right:36px;
+      background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='none'%3E%3Cpath d='M5 7.5L10 12.5L15 7.5' stroke='%23374151' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+      background-repeat:no-repeat;
+      background-position:right 12px center;
+      background-size:14px 14px;
+    }
 
     table{width:100%;border-collapse:collapse;margin-top:12px}
     th,td{padding:10px;border-bottom:1px solid #eef2f7;text-align:left;font-size:14px;vertical-align:middle}
@@ -103,6 +114,7 @@
       display:inline-flex;align-items:center;justify-content:center;
     }
     .modal-actions .btn-ghost{margin-top:0;color:#6b7280;background:#fff;border:1px solid #4b5563}
+    .modal-actions .btn-danger{background:#b91c1c;color:#fff}
 
     @media (max-width: 900px){
       .sidebar{width:200px}
@@ -111,7 +123,7 @@
   </style>
 
   <!-- IMPORTANT: bump version so GitHub Pages loads newest JS -->
-  <script type="module" src="./js/admin.js?v=9"></script>
+  <script type="module" src="./js/admin.js?v=10"></script>
 </head>
 
 <body>
@@ -224,6 +236,18 @@
       <div class="modal-actions">
         <button class="btn btn-ghost" id="roleModalCancel" type="button">Cancel</button>
         <button class="btn" id="roleModalSave" type="button">Save Role</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-backdrop" id="deleteModalBackdrop" aria-hidden="true">
+    <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="deleteModalTitle">
+      <div id="deleteModalTitle" class="modal-title">Delete User</div>
+      <div id="deleteModalEmail" class="modal-sub">Are you sure you want to delete this user?</div>
+
+      <div class="modal-actions">
+        <button class="btn btn-ghost" id="deleteModalCancel" type="button">Cancel</button>
+        <button class="btn btn-danger" id="deleteModalConfirm" type="button">Delete</button>
       </div>
     </div>
   </div>
