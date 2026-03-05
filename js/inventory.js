@@ -40,6 +40,7 @@ async function requireAuth() {
 }
 
 async function getMyRole(userId) {
+  const cachedRole = String(localStorage.getItem("kairo_role") || "").trim().toLowerCase();
   const { data, error } = await supabase
     .from("profiles")
     .select("role")
@@ -48,9 +49,9 @@ async function getMyRole(userId) {
 
   if (error) {
     console.error("getMyRole error:", error);
-    return "staff";
+    return cachedRole || "staff";
   }
-  return String(data?.role || "staff").trim().toLowerCase();
+  return String(data?.role || cachedRole || "staff").trim().toLowerCase();
 }
 
 let isAdmin = false;
@@ -212,7 +213,15 @@ async function archiveProduct(row) {
 ========================= */
 function renderTable(rows) {
   const q = (el("search")?.value || "").trim().toLowerCase();
-  const filtered = rows.filter((r) => (r.name || "").toLowerCase().includes(q));
+  const stockFilter = String(el("stockFilter")?.value || "all");
+  const filtered = rows.filter((r) => {
+    const matchesSearch = (r.name || "").toLowerCase().includes(q);
+    if (!matchesSearch) return false;
+
+    if (stockFilter === "low") return Number(r.stock) <= Number(r.min);
+    if (stockFilter === "high") return Number(r.stock) > Number(r.min);
+    return true;
+  });
 
   el("invBody").innerHTML = filtered
     .map(
@@ -374,6 +383,7 @@ async function main() {
 
   el("refreshBtn")?.addEventListener("click", loadInventory);
   el("search")?.addEventListener("input", () => renderTable(allRows));
+  el("stockFilter")?.addEventListener("change", () => renderTable(allRows));
   el("addProductBtn")?.addEventListener("click", addProduct);
   el("editCancelBtn")?.addEventListener("click", closeEditModal);
   el("editSaveBtn")?.addEventListener("click", saveEditModal);

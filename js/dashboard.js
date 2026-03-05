@@ -27,6 +27,7 @@ async function requireAuth() {
 }
 
 async function getMyRole(userId) {
+  const cachedRole = String(localStorage.getItem("kairo_role") || "").trim().toLowerCase();
   const { data, error } = await supabase
     .from("profiles")
     .select("role,full_name")
@@ -35,13 +36,11 @@ async function getMyRole(userId) {
 
   if (error) {
     console.error("Role read failed:", error);
-    // show it on UI so you see why it’s stuck
-    showFatal("Role read failed: " + error.message);
-    return { role: "staff", full_name: "" };
+    return { role: cachedRole || "staff", full_name: "" };
   }
 
   return {
-    role: String(data?.role || "staff").trim().toLowerCase(),
+    role: String(data?.role || cachedRole || "staff").trim().toLowerCase(),
     full_name: data?.full_name || "",
   };
 }

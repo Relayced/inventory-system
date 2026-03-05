@@ -4,6 +4,7 @@ const el = (id) => document.getElementById(id);
 const peso = (n) => `₱${Number(n || 0).toFixed(2)}`;
 
 let rows = [];
+let clearContext = null;
 
 async function requireAuth() {
   const { data, error } = await supabase.auth.getUser();
@@ -15,6 +16,7 @@ async function requireAuth() {
 }
 
 async function getMyRole(userId) {
+  const cachedRole = String(localStorage.getItem("kairo_role") || "").trim().toLowerCase();
   const { data, error } = await supabase
     .from("profiles")
     .select("role")
@@ -23,9 +25,9 @@ async function getMyRole(userId) {
 
   if (error) {
     console.error("Role read failed:", error);
-    return "staff";
+    return cachedRole || "staff";
   }
-  return String(data?.role || "staff").trim().toLowerCase();
+  return String(data?.role || cachedRole || "staff").trim().toLowerCase();
 }
 
 function normalizeRole(role) {
@@ -46,6 +48,32 @@ function escapeHtml(str) {
     .replaceAll(">", "&gt;")
     .replaceAll('"', "&quot;")
     .replaceAll("'", "&#039;");
+}
+
+function isMissingTableError(error) {
+  if (!error) return false;
+  const code = String(error.code || "").toUpperCase();
+  const message = String(error.message || "").toLowerCase();
+  return (
+    code === "42P01" ||
+    code === "PGRST205" ||
+    message.includes("could not find the table") ||
+    message.includes("does not exist")
+  );
+}
+
+function isForeignKeyError(error) {
+  if (!error) return false;
+  const code = String(error.code || "").toUpperCase();
+  const message = String(error.message || "").toLowerCase();
+  return code === "23503" || message.includes("foreign key");
+}
+
+function isPolicyError(error) {
+  if (!error) return false;
+  const code = String(error.code || "").toUpperCase();
+  const message = String(error.message || "").toLowerCase();
+  return code === "42501" || message.includes("policy") || message.includes("permission denied");
 }
 
 function renderTable() {
@@ -70,32 +98,26 @@ function renderTable() {
 async function loadSaleItemNames(saleIds) {
   if (!saleIds.length) return {};
 
-  const attempts = ["sale_items", "sales_items"];
+  const { data, error } = await supabase
+    .from("sale_items")
+    .select("sale_id, qty, products:product_id(name)")
+    .in("sale_id", saleIds);
 
-  for (const table of attempts) {
-    const { data, error } = await supabase
-      .from(table)
-      .select("sale_id, qty, products:product_id(name)")
-      .in("sale_id", saleIds);
+  if (error) return {};
 
-    if (error) continue;
+  const map = {};
+  (data || []).forEach((row) => {
+    const saleId = String(row.sale_id || "");
+    if (!saleId) return;
+    const name = String(row.products?.name || "Unknown");
+    const qty = Number(row.qty || 0);
+    const label = qty > 0 ? `${name} x${qty}` : name;
 
-    const map = {};
-    (data || []).forEach((row) => {
-      const saleId = String(row.sale_id || "");
-      if (!saleId) return;
-      const name = String(row.products?.name || "Unknown");
-      const qty = Number(row.qty || 0);
-      const label = qty > 0 ? `${name} x${qty}` : name;
+    if (!map[saleId]) map[saleId] = [];
+    map[saleId].push(label);
+  });
 
-      if (!map[saleId]) map[saleId] = [];
-      map[saleId].push(label);
-    });
-
-    return map;
-  }
-
-  return {};
+  return map;
 }
 
 async function loadHistory(userId, role) {
@@ -124,7 +146,7 @@ async function loadHistory(userId, role) {
   const itemNameMap = await loadSaleItemNames(saleIds);
 
   if (isAdmin && sales.length > 0 && Object.keys(itemNameMap).length === 0) {
-    el("note").textContent = "Admin loaded all sales, but item names are restricted by DB policy (sale_items/sales_items).";
+    el("note").textContent = "Admin loaded all sales, but item names are restricted by DB policy (sale_items).";
   }
 
   rows = sales.map((sale) => {
@@ -136,6 +158,79 @@ async function loadHistory(userId, role) {
   });
 
   renderTable();
+}
+
+function openClearModal(userId, role) {
+  clearContext = { userId, role };
+  const isAdmin = role === "admin";
+  const text = el("clearModalText");
+  if (text) {
+    text.textContent = isAdmin
+      ? "Clear all transaction history? This cannot be undone."
+      : "Clear your transaction history? This cannot be undone.";
+  }
+  el("clearModal")?.classList.add("show");
+}
+
+function closeClearModal() {
+  clearContext = null;
+  el("clearModal")?.classList.remove("show");
+}
+
+async function clearHistory(userId, role) {
+  const isAdmin = role === "admin";
+
+  el("note").textContent = "Clearing history…";
+
+  let salesQuery = supabase.from("sales").select("id");
+  if (!isAdmin) salesQuery = salesQuery.eq("user_id", userId);
+
+  const { data: salesRows, error: salesReadErr } = await salesQuery;
+  if (salesReadErr) {
+    el("note").textContent = "Cannot clear history: " + salesReadErr.message;
+    return;
+  }
+
+  const saleIds = (salesRows || []).map((row) => row.id).filter(Boolean);
+  if (!saleIds.length) {
+    el("note").textContent = "No transactions found to clear.";
+    return;
+  }
+
+  const deleteSales = async () => {
+    let query = supabase.from("sales").delete().in("id", saleIds);
+    if (!isAdmin) query = query.eq("user_id", userId);
+    return query;
+  };
+
+  let { error: salesDeleteErr } = await deleteSales();
+
+  if (salesDeleteErr && isForeignKeyError(salesDeleteErr)) {
+    const { error: itemDeleteErr } = await supabase
+      .from("sale_items")
+      .delete()
+      .in("sale_id", saleIds);
+
+    if (itemDeleteErr && !isMissingTableError(itemDeleteErr)) {
+      el("note").textContent = "Cannot clear history (sale_items): " + itemDeleteErr.message;
+      return;
+    }
+
+    const retry = await deleteSales();
+    salesDeleteErr = retry.error;
+  }
+
+  if (salesDeleteErr) {
+    if (isPolicyError(salesDeleteErr)) {
+      el("note").textContent = "Cannot clear history: delete blocked by RLS policy for this account.";
+      return;
+    }
+    el("note").textContent = "Cannot clear history: " + salesDeleteErr.message;
+    return;
+  }
+
+  closeClearModal();
+  await loadHistory(userId, role);
 }
 
 function applyNavByRole(role) {
@@ -190,6 +285,15 @@ async function main() {
   applyNavByRole(role);
 
   el("search")?.addEventListener("input", renderTable);
+  el("clearBtn")?.addEventListener("click", () => openClearModal(user.id, role));
+  el("clearCancelBtn")?.addEventListener("click", closeClearModal);
+  el("clearConfirmBtn")?.addEventListener("click", async () => {
+    if (!clearContext) return;
+    await clearHistory(clearContext.userId, clearContext.role);
+  });
+  el("clearModal")?.addEventListener("click", (event) => {
+    if (event.target === el("clearModal")) closeClearModal();
+  });
   el("refreshBtn")?.addEventListener("click", () => loadHistory(user.id, role));
 
   el("logoutBtn")?.addEventListener("click", async () => {
@@ -197,6 +301,10 @@ async function main() {
     localStorage.removeItem("kairo_role");
     document.documentElement.classList.remove("role-admin", "role-staff", "role-user");
     window.location.href = "./index.html";
+  });
+
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape") closeClearModal();
   });
 
   await loadHistory(user.id, role);

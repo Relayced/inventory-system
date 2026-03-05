@@ -13,14 +13,15 @@ async function requireAuth() {
 }
 
 async function getRole(userId) {
+  const cachedRole = String(localStorage.getItem("kairo_role") || "").trim().toLowerCase();
   const { data, error } = await supabase
     .from("profiles")
     .select("role")
     .eq("id", userId)
     .maybeSingle();
 
-  if (error) return "staff";
-  return String(data?.role || "staff").trim().toLowerCase();
+  if (error) return cachedRole || "staff";
+  return String(data?.role || cachedRole || "staff").trim().toLowerCase();
 }
 
 function toRange(startDateStr, endDateStr) {
@@ -44,6 +45,19 @@ function asNumber(value, fallback = 0) {
   return Number.isFinite(n) ? n : fallback;
 }
 
+function resetReportView() {
+  el("orders").textContent = "0";
+  el("itemsSold").textContent = "0";
+  el("revenue").textContent = peso(0);
+  el("avgOrder").textContent = peso(0);
+
+  el("fastNote").textContent = "No sales in this range.";
+  el("fastBody").innerHTML = "";
+
+  el("slowNote").textContent = "No products found.";
+  el("slowBody").innerHTML = "";
+}
+
 async function loadTransactionHistoryData(userId, role, start, end) {
   let salesQuery = supabase
     .from("sales")
@@ -65,31 +79,16 @@ async function loadTransactionHistoryData(userId, role, start, end) {
     return { salesRows: salesRows || [], itemRows: [] };
   }
 
-  let itemRows = [];
-  let itemErr = null;
-  const itemTableAttempts = ["sale_items", "sales_items"];
-
-  for (const table of itemTableAttempts) {
-    const { data, error } = await supabase
-      .from(table)
-      .select("sale_id, product_id, qty, products:product_id(name,price)")
-      .in("sale_id", saleIds);
-
-    if (error) {
-      itemErr = error;
-      continue;
-    }
-
-    itemRows = data || [];
-    itemErr = null;
-    break;
-  }
+  const { data: itemRows, error: itemErr } = await supabase
+    .from("sale_items")
+    .select("sale_id, product_id, qty, products:product_id(name,price)")
+    .in("sale_id", saleIds);
 
   if (itemErr) {
-    throw new Error("Transaction read error (sale items): " + itemErr.message);
+    throw new Error("Transaction read error (sale_items): " + itemErr.message);
   }
 
-  return { salesRows: salesRows || [], itemRows };
+  return { salesRows: salesRows || [], itemRows: itemRows || [] };
 }
 
 function computeSummaryFromTransactions(salesRows, itemRows) {
@@ -131,6 +130,7 @@ function computeProductRanking(itemRows, sortDir = "desc") {
 
 async function loadAll(userId, role) {
   el("err").textContent = "";
+  resetReportView();
 
   const startDate = el("startDate").value;
   const endDate = el("endDate").value;
@@ -141,6 +141,8 @@ async function loadAll(userId, role) {
     txData = await loadTransactionHistoryData(userId, role, start, end);
   } catch (txErr) {
     el("err").textContent = String(txErr.message || txErr);
+    el("lowNote").textContent = "";
+    el("lowBody").innerHTML = "";
     return;
   }
 

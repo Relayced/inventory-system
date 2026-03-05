@@ -16,6 +16,7 @@ async function requireAuth() {
 }
 
 async function getMyRole(userId) {
+  const cachedRole = String(localStorage.getItem("kairo_role") || "").trim().toLowerCase();
   const { data, error } = await supabase
     .from("profiles")
     .select("role")
@@ -24,9 +25,9 @@ async function getMyRole(userId) {
 
   if (error) {
     console.error("Role read failed:", error);
-    return "staff";
+    return cachedRole || "staff";
   }
-  return String(data?.role || "staff").trim().toLowerCase();
+  return String(data?.role || cachedRole || "staff").trim().toLowerCase();
 }
 
 function normalizeRole(role) {

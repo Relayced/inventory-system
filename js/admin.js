@@ -39,6 +39,7 @@ async function requireAuth() {
 }
 
 async function getMyRole(userId) {
+  const cachedRole = String(localStorage.getItem("kairo_role") || "").trim().toLowerCase();
   // NOTE: your profiles table may NOT have "email" column, so we only select role
   const { data, error } = await supabase
     .from("profiles")
@@ -48,9 +49,9 @@ async function getMyRole(userId) {
 
   if (error) {
     console.error("getMyRole error:", error);
-    return "staff";
+    return cachedRole || "staff";
   }
-  return String(data?.role || "staff").trim().toLowerCase();
+  return String(data?.role || cachedRole || "staff").trim().toLowerCase();
 }
 
 let allUsers = [];

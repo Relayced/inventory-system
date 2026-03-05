@@ -65,6 +65,17 @@
     input{padding:10px 12px;border:1px solid #e5e7eb;border-radius:10px;outline:none}
     input:focus{border-color:#93c5fd}
 
+    .modal-backdrop{
+      position:fixed;inset:0;background:rgba(17,24,39,.45);display:none;align-items:center;justify-content:center;
+      z-index:50;padding:14px
+    }
+    .modal-backdrop.show{display:flex}
+    .modal-card{background:#fff;border-radius:14px;padding:18px;max-width:420px;width:100%;box-shadow:0 20px 30px rgba(0,0,0,.2)}
+    .modal-title{font-size:18px;font-weight:800;margin-bottom:12px}
+    .modal-actions{display:flex;justify-content:flex-end;gap:10px;margin-top:14px}
+    .btn-cancel{background:#e5e7eb;color:#111827}
+    .btn-danger{background:#b91c1c;color:#fff}
+
     @media (max-width: 900px){
       .sidebar{width:200px}
       .main{padding:16px}
@@ -83,7 +94,7 @@
       }
     })();
   </script>
-  <script type="module" src="./js/history.js?v=6"></script>
+  <script type="module" src="./js/history.js?v=8"></script>
 </head>
 
 <body>
@@ -126,6 +137,7 @@
 
         <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;">
           <input id="search" placeholder="Search product..." style="min-width:240px;" />
+          <button class="btn" id="clearBtn" type="button">Clear</button>
           <button class="btn" id="refreshBtn">Refresh</button>
         </div>
       </header>
@@ -143,6 +155,17 @@
           </thead>
           <tbody id="historyBody"></tbody>
         </table>
+      </div>
+
+      <div id="clearModal" class="modal-backdrop">
+        <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="clearModalTitle">
+          <div class="modal-title" id="clearModalTitle">Clear History</div>
+          <div id="clearModalText" class="muted">Clear transaction history? This cannot be undone.</div>
+          <div class="modal-actions">
+            <button class="btn btn-cancel" id="clearCancelBtn" type="button">Cancel</button>
+            <button class="btn btn-danger" id="clearConfirmBtn" type="button">Clear</button>
+          </div>
+        </div>
       </div>
     </main>
   </div>
